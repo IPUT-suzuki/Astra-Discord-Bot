@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Client, IntentsBitField } from 'discord.js';
 import type { Interaction } from 'discord.js';
 import { Log } from './utils/logger.js';
+import { Dice } from './module/dice.js';
 
 const args = process.argv.slice(2);
 export const isDebug = args.includes('debug');
@@ -37,5 +38,8 @@ client.on('interactionCreate', async (interaction: Interaction) => {
     } else if (fullcommand == 'valo map') {
     } else if (fullcommand == 'valo list') {
     } else if (fullcommand == 'dice') {
+        const dice = new Dice(interaction);
+        await dice.start();
+        Log.commandSuccess(interaction);
     }
 });
