@@ -4,6 +4,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
+        "debug": "node build/index.js debug",
         "start": "node build/index.js",
         "compile": "tsc -p ."
     },
