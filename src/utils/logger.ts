@@ -31,9 +31,10 @@ export class Log {
         console.log(chalk.red(text));
         this.writeToFile(text);
     }
-    static debug(message: string) {
+    static debug(message: unknown) {
         if (isDebug) {
-            const text = `[${this.timeStamp()}]` + '[DEBUG]' + `${message}`;
+            const payload = typeof message === 'string' ? message : JSON.stringify(message, null, 2);
+            const text = `[${this.timeStamp()}]` + '[DEBUG]' + `${payload}`;
             console.log(chalk.yellow(text));
             this.writeToFile(text);
         }
@@ -54,7 +55,10 @@ export class Log {
         this.debug(`Interaction TOKEN: ${interaction.token}`);
     }
     static commandSuccess(interaction: ChatInputCommandInteraction) {
-        this.success(`Command: ${interaction}`);
+        const command = interaction.commandName;
+        const subCommand = interaction.options.getSubcommand(false);
+        const fullcommand = subCommand ? command + ' ' + subCommand : command;
+        this.success(`Command: ${fullcommand}`);
         this.debug(`Interaction ID: ${interaction.id}`);
         this.debug(`Interaction TOKEN: ${interaction.token}`);
     }
