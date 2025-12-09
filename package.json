@@ -6,7 +6,8 @@
     "scripts": {
         "debug": "node build/index.js debug",
         "start": "node build/index.js",
-        "compile": "tsc -p ."
+        "compile": "tsc -p .",
+        "autocompile": "tsc -w"
     },
     "keywords": [],
     "author": "",
