@@ -26,20 +26,22 @@ client.on('clientReady', async (c) => {
     Log.main(c.user.tag + 'is Online');
 });
 
-client.on('interactionCreate', async (interaction: Interaction) => {
+client.on('interactionCreate', (interaction: Interaction) => {
     if (!interaction.isChatInputCommand()) return;
-    // ここから下はinteraction: ChatInputCommandInteractionとして扱える
-    const command = interaction.commandName;
-    const subCommand = interaction.options.getSubcommand(false);
-    const fullcommand = subCommand ? command + ' ' + subCommand : command;
-    Log.useCommand(interaction);
-    if (fullcommand == 'valo rank') {
-    } else if (fullcommand == 'valo team') {
-    } else if (fullcommand == 'valo map') {
-    } else if (fullcommand == 'valo list') {
-    } else if (fullcommand == 'dice') {
-        const dice = new Dice(interaction);
-        await dice.start();
-        Log.commandSuccess(interaction);
-    }
+    // 並列で非同期処理
+    (async () => {
+        const command = interaction.commandName;
+        const subCommand = interaction.options.getSubcommand(false);
+        const fullcommand = subCommand ? command + ' ' + subCommand : command;
+        Log.useCommand(interaction);
+        if (fullcommand == 'valo rank') {
+        } else if (fullcommand == 'valo team') {
+        } else if (fullcommand == 'valo map') {
+        } else if (fullcommand == 'valo list') {
+        } else if (fullcommand == 'dice') {
+            const dice = new Dice(interaction);
+            await dice.start();
+            Log.commandSuccess(interaction);
+        }
+    })();
 });

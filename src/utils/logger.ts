@@ -31,10 +31,9 @@ export class Log {
         console.log(chalk.red(text));
         this.writeToFile(text);
     }
-    static debug(message: unknown) {
+    static debug(message: string) {
         if (isDebug) {
-            const payload = typeof message === 'string' ? message : JSON.stringify(message, null, 2);
-            const text = `[${this.timeStamp()}]` + '[DEBUG]' + `${payload}`;
+            const text = `[${this.timeStamp()}]` + '[DEBUG]' + `${message}`;
             console.log(chalk.yellow(text));
             this.writeToFile(text);
         }
