@@ -8,9 +8,9 @@ export async function listener(
     return new Promise((resolve) => {
         const collector = reply.createMessageComponentCollector({ time: time ?? 600_000 }); //デフォルト10分
         collector.on('collect', async (btnInteraction) => {
-            await btnInteraction.deferUpdate();
             const btnId = btnInteraction.customId;
             if (btnId.startsWith(prefix)) {
+                await btnInteraction.deferUpdate();
                 resolve(btnInteraction);
                 collector.stop();
             }

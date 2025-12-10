@@ -19,6 +19,7 @@ export class ValoMap {
     constructor(interaction: ChatInputCommandInteraction) {
         this.i = interaction;
         this.data = { option: interaction.options.getString('option', true) };
+
         this.mapinfo = mapInfo.map((map) => ({
             ...map,
             selected: false,
