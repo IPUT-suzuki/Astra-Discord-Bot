@@ -38,8 +38,8 @@ client.on('interactionCreate', (interaction: Interaction) => {
         if (fullcommand == 'valo rank') {
         } else if (fullcommand == 'valo team') {
         } else if (fullcommand == 'valo map') {
-            const map = new ValoMap(interaction);
-            await map.start();
+            const valomap = new ValoMap(interaction);
+            await valomap.start();
             Log.commandSuccess(interaction);
         } else if (fullcommand == 'valo list') {
         } else if (fullcommand == 'dice') {
