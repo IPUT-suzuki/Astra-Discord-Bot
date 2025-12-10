@@ -1,15 +1,11 @@
 import type { ChatInputCommandInteraction, GuildMember } from 'discord.js';
 import { Colors, EmbedBuilder } from 'discord.js';
 import { Log } from '../utils/logger.js';
-interface diceData {
-    name: string;
-    icon: string;
-    value: number;
-}
+import type { slashDiceData } from '../utils/interface.js';
 
 export class Dice {
     i: ChatInputCommandInteraction;
-    data: diceData;
+    data: slashDiceData;
     constructor(interaction: ChatInputCommandInteraction) {
         this.i = interaction;
         this.data = {
@@ -28,7 +24,7 @@ export class Dice {
 }
 
 class Embed {
-    static result(data: diceData) {
+    static result(data: slashDiceData) {
         return new EmbedBuilder()
             .setAuthor({ name: data.name, iconURL: data.icon })
             .setTitle(`ダイス結果 : ${data.value}`)
