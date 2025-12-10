@@ -21,7 +21,7 @@ export interface slashDiceData {
 
 export interface slashValoMapData {
     option: string;
-    map: string;
-    mapImage: string;
-    miniMapImage: string;
+    map?: string;
+    mapImage?: string;
+    miniMapImage?: string;
 }
