@@ -1,7 +1,7 @@
 import { Colors, EmbedBuilder, type ChatInputCommandInteraction } from 'discord.js';
 import { mapInfo } from '../../utils/valoconfig.js';
 import type { slashValoMapData, MapInfo } from '../../utils/interface.js';
-import { text } from 'stream/consumers';
+import { Log } from '../../utils/logger.js';
 
 export class ValoMap {
     i: ChatInputCommandInteraction;
@@ -19,13 +19,21 @@ export class ValoMap {
     }
 
     async start() {
-        if (this.data.option == 'all') {
-            this.randomMapSelector();
-            const embed = Embed.result(this.data);
-            await this.i.reply({
-                embeds: [embed],
-            });
+        if (this.data.option === 'all') {
+            //何もしない
+        } else if (this.data.option === 'competitive') {
+            this.setCompetitiveMap();
         }
+        this.randomMapSelector();
+        const embed = Embed.result(this.data);
+        Log.debug(JSON.stringify(this.data, null, 2));
+        await this.i.reply({
+            embeds: [embed],
+        });
+    }
+
+    setCompetitiveMap() {
+        this.mapinfo = this.mapinfo.filter((map) => map.competitive === true);
     }
 
     randomMapSelector() {
