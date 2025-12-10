@@ -3,6 +3,7 @@ import { Client, IntentsBitField } from 'discord.js';
 import type { Interaction } from 'discord.js';
 import { Log } from './utils/logger.js';
 import { Dice } from './module/dice.js';
+import { ValoMap } from './module/valo/map.js';
 
 const args = process.argv.slice(2);
 export const isDebug = args.includes('debug');
@@ -37,6 +38,9 @@ client.on('interactionCreate', (interaction: Interaction) => {
         if (fullcommand == 'valo rank') {
         } else if (fullcommand == 'valo team') {
         } else if (fullcommand == 'valo map') {
+            const map = new ValoMap(interaction);
+            await map.start();
+            Log.commandSuccess(interaction);
         } else if (fullcommand == 'valo list') {
         } else if (fullcommand == 'dice') {
             const dice = new Dice(interaction);
