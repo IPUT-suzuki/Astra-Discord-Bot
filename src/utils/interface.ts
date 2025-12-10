@@ -3,6 +3,7 @@ export interface MapInfo {
     competitive: boolean;
     mapImage: string;
     miniMapImage: string;
+    selected?: boolean;
 }
 
 export interface RankInfo {
