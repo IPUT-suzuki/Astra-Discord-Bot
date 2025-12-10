@@ -1,16 +1,4 @@
-interface RankInfo {
-    category: string[];
-    tire: number[];
-    noTireCategory: string[];
-    rankIcon: { [key: string]: string };
-}
-
-interface MapInfo {
-    name: string;
-    competitive: boolean;
-    mapImage: string;
-    miniMapImage: string;
-}
+import type { MapInfo, RankInfo } from './interface.js';
 
 export const rankInfo: RankInfo = {
     category: [
