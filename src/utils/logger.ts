@@ -50,7 +50,7 @@ export class Log {
             })`
         );
         this.info(`User: ${interaction.user.username} (${interaction.user.id})`);
-        this.debug(`Interaction ID: ${interaction.id}`);
+        this.info(`Interaction ID: ${interaction.id}`);
         this.debug(`Interaction TOKEN: ${interaction.token}`);
     }
     static commandSuccess(interaction: ChatInputCommandInteraction) {
@@ -58,7 +58,7 @@ export class Log {
         const subCommand = interaction.options.getSubcommand(false);
         const fullcommand = subCommand ? command + ' ' + subCommand : command;
         this.success(`Command: ${fullcommand}`);
-        this.debug(`Interaction ID: ${interaction.id}`);
+        this.info(`Interaction ID: ${interaction.id}`);
         this.debug(`Interaction TOKEN: ${interaction.token}`);
     }
 }

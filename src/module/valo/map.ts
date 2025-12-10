@@ -46,10 +46,17 @@ export class ValoMap {
                     const target = this.mapinfo.find((map) => map.name === mapName);
                     if (target) {
                         target.selected = !target.selected;
+                        Log.info(
+                            `Map "${target.name}" excluded state: ${
+                                target.selected ? 'true' : 'false'
+                            }`
+                        );
+                        Log.info(`Interaction ID: ${this.i.id}`);
                     }
                 }
             }
             this.setExcludeMap();
+            Log.debug(JSON.stringify(this.mapinfo, null, 2));
             await this.sendResult(false);
         }
     }
