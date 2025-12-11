@@ -1,9 +1,11 @@
 import {
     ActionRowBuilder,
     ButtonBuilder,
+    ButtonInteraction,
     ButtonStyle,
     Colors,
     EmbedBuilder,
+    MessageComponentInteraction,
     type ChatInputCommandInteraction,
 } from 'discord.js';
 import { mapInfo } from '../../utils/valoconfig.js';
@@ -36,7 +38,9 @@ export class ValoMap {
         } else if (this.data.option === 'exclude') {
             let isFirst = true;
             while (!this.excludeConfirm) {
-                await this.sendExcludeOption(isFirst);
+                if (isFirst) {
+                    await this.sendExcludeOption(null);
+                }
                 isFirst = false;
                 const newInteraction = await listener(await this.i.fetchReply(), 'exclude_', null);
                 if (newInteraction?.customId === 'exclude_confirm') {
@@ -54,22 +58,25 @@ export class ValoMap {
                         Log.info(`Interaction ID: ${this.i.id}`);
                     }
                 }
+                this.sendExcludeOption(newInteraction ?? null);
             }
             this.setExcludeMap();
             Log.debug(JSON.stringify(this.mapinfo, null, 2));
-            await this.sendResult(false);
+            await this.sendResult(isFirst);
         }
     }
 
-    async sendExcludeOption(isFirst: boolean) {
-        const method = isFirst ? 'reply' : 'editReply';
-        await this.i[method]({
-            embeds: [Embed.excludeInfo(this.mapinfo)],
-            components: [
-                ...Button.excluedeButton(this.mapinfo),
-                new ActionRowBuilder<ButtonBuilder>().addComponents(Button.confirmButton()),
-            ],
-        });
+    async sendExcludeOption(btnInteraction: MessageComponentInteraction | null) {
+        const embeds = [Embed.excludeInfo(this.mapinfo)];
+        const components = [
+            ...Button.excluedeButton(this.mapinfo),
+            new ActionRowBuilder<ButtonBuilder>().addComponents(Button.confirmButton()),
+        ];
+        if (btnInteraction) {
+            await btnInteraction.update({ embeds, components });
+        } else {
+            await this.i.reply({ embeds, components });
+        }
     }
     async sendResult(isFirst: boolean) {
         this.randomMapSelector();
