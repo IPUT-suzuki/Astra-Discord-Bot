@@ -4,14 +4,14 @@ import type { Interaction } from 'discord.js';
 import { Log } from './utils/logger.js';
 import { Dice } from './module/dice.js';
 import { ValoMap } from './module/valo/map.js';
-import { initTables } from './database/db.js';
+import { initTablesInDB } from './database/db.js';
 
 const args = process.argv.slice(2);
 export const isDebug = args.includes('debug');
 if (isDebug) {
     Log.main('Boot is debug mode');
 }
-await initTables(); //データベースの初期化
+await initTablesInDB(); //データベースの初期化
 
 const client = new Client({
     intents: [

@@ -13,7 +13,7 @@ const pool = mysql.createPool({
     queueLimit: 0,
 });
 
-export async function initTables() {
+export async function initTablesInDB() {
     const createUserRank = `
         CREATE TABLE IF NOT EXISTS userrank (
             userid INT NOT NULL,
@@ -30,7 +30,7 @@ export async function initTables() {
     Log.success('Database tables initialized successfully.');
 }
 
-export async function insertUserRank(userdata: DBuserRankData) {
+export async function insertUserRankToDB(userdata: DBuserRankData) {
     const conn = await pool.getConnection();
     await conn.query(
         `INSERT INTO userrank (userid, maxCategory, maxTire, nowCategory, nowTire)
@@ -53,7 +53,7 @@ export async function insertUserRank(userdata: DBuserRankData) {
     conn.release();
 }
 
-export async function getUserRank(userid: string) {
+export async function getUserRankFromDB(userid: string) {
     const conn = await pool.getConnection();
     const [rows] = (await conn.query('SELECT * FROM userrank WHERE userid = ?', [userid])) as [
         DBuserRankData[],
