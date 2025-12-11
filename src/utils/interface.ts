@@ -13,6 +13,14 @@ export interface RankInfo {
     rankIcon: { [key: string]: string };
 }
 
+export interface DBuserRankData {
+    userid: string;
+    maxCategory: string;
+    maxTire: string;
+    nowCategory: string;
+    nowTire: string;
+}
+
 export interface slashDiceData {
     name: string;
     icon: string;
