@@ -19,6 +19,7 @@ export interface DBuserRankData {
     maxTire: string;
     nowCategory: string;
     nowTire: string;
+    timeStam?: string;
 }
 
 export interface slashDiceData {
