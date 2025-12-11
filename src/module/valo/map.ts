@@ -39,10 +39,10 @@ export class ValoMap {
             let isFirst = true;
             while (!this.excludeConfirm) {
                 if (isFirst) {
-                    await this.sendExcludeOption(null);
+                    await this.sendExcludeOption();
                 }
                 isFirst = false;
-                const newInteraction = await listener(await this.i.fetchReply(), 'exclude_', null);
+                const newInteraction = await listener(await this.i.fetchReply(), 'exclude_');
                 if (newInteraction?.customId === 'exclude_confirm') {
                     this.excludeConfirm = true;
                 } else if (newInteraction?.customId?.startsWith('exclude_')) {
@@ -66,7 +66,7 @@ export class ValoMap {
         }
     }
 
-    async sendExcludeOption(btnInteraction: MessageComponentInteraction | null) {
+    async sendExcludeOption(btnInteraction?: MessageComponentInteraction | null) {
         const embeds = [Embed.excludeInfo(this.mapinfo)];
         const components = [
             ...Button.excluedeButton(this.mapinfo),

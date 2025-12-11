@@ -3,7 +3,7 @@ import type { Message, MessageComponentInteraction } from 'discord.js';
 export async function listener(
     reply: Message,
     prefix: string,
-    time: number | null = null
+    time?: number | null
 ): Promise<MessageComponentInteraction | void> {
     return new Promise((resolve) => {
         const collector = reply.createMessageComponentCollector({ time: time ?? 600_000 }); //デフォルト10分
