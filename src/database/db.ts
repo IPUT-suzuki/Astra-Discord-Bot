@@ -16,12 +16,12 @@ const pool = mysql.createPool({
 export async function initTablesInDB() {
     const createUserRank = `
         CREATE TABLE IF NOT EXISTS userrank (
-            userid INT NOT NULL,
+            userid VARCHAR(32) NOT NULL PRIMARY KEY,
             maxCategory VARCHAR(32),
-            maxTire INT NOT NULL,
+            maxTier VARCHAR(32),
             nowCategory VARCHAR(32),
-            nowTire INT NOT NULL,
-            timeStamp DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            nowTier VARCHAR(32),
+            timeStamp VARCHAR(32)
         );
     `;
     const conn = await pool.getConnection();
@@ -33,32 +33,36 @@ export async function initTablesInDB() {
 export async function insertUserRankToDB(userdata: DBuserRankData) {
     const conn = await pool.getConnection();
     await conn.query(
-        `INSERT INTO userrank (userid, maxCategory, maxTire, nowCategory, nowTire)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO userrank (userid, maxCategory, maxTier, nowCategory, nowTier, timeStamp)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
             maxCategory = VALUES(maxCategory),
-            maxTire = VALUES(maxTire),
+            maxTier = VALUES(maxTier),
             nowCategory = VALUES(nowCategory),
-            nowTire = VALUES(nowTire),
-            timeStamp = CURRENT_TIMESTAMP
+            nowTier = VALUES(nowTier),
+            timeStamp = VALUES(timeStamp)
         `,
         [
             userdata.userid,
             userdata.maxCategory,
-            userdata.maxTire,
+            userdata.maxTier,
             userdata.nowCategory,
-            userdata.nowTire,
+            userdata.nowTier,
+            userdata.timeStamp,
         ]
     );
     conn.release();
 }
 
+export async function deleteUserRankFromDB(userid: string) {
+    const conn = await pool.getConnection();
+    await conn.query('DELETE FROM userrank WHERE userid = ?', [userid]);
+    conn.release();
+}
+
 export async function getUserRankFromDB(userid: string) {
     const conn = await pool.getConnection();
-    const [rows] = (await conn.query('SELECT * FROM userrank WHERE userid = ?', [userid])) as [
-        DBuserRankData[],
-        any
-    ];
+    const [rows] = (await conn.query('SELECT * FROM userrank WHERE userid = ?', [userid])) as [DBuserRankData[], any];
     conn.release();
     return rows?.[0] ?? null;
 }

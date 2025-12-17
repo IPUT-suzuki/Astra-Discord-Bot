@@ -8,18 +8,20 @@ export interface MapInfo {
 
 export interface RankInfo {
     category: string[];
-    tire: number[];
+    tier: string[];
     noTireCategory: string[];
     rankIcon: { [key: string]: string };
 }
 
 export interface DBuserRankData {
     userid: string;
-    maxCategory: string;
-    maxTire: string;
-    nowCategory: string;
-    nowTire: string;
-    timeStam?: string;
+    username: string;
+    usericon: string;
+    maxCategory: string | null;
+    maxTier: string | null;
+    nowCategory: string | null;
+    nowTier: string | null;
+    timeStamp?: string | null;
 }
 
 export interface slashDiceData {

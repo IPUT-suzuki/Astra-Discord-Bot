@@ -1,7 +1,6 @@
 import {
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonInteraction,
     ButtonStyle,
     Colors,
     EmbedBuilder,
@@ -12,6 +11,7 @@ import { mapInfo } from '../../utils/valoconfig.js';
 import type { slashValoMapData, MapInfo } from '../../utils/interface.js';
 import { Log } from '../../utils/logger.js';
 import { listener } from './common/listener.js';
+import { timeoutEmbed } from './common/timeout.js';
 
 export class ValoMap {
     i: ChatInputCommandInteraction;
@@ -43,6 +43,13 @@ export class ValoMap {
                 }
                 isFirst = false;
                 const newInteraction = await listener(await this.i.fetchReply(), 'exclude_');
+                if (!newInteraction) {
+                    await this.i.editReply({
+                        embeds: [timeoutEmbed()],
+                        components: [],
+                    });
+                    return;
+                }
                 if (newInteraction?.customId === 'exclude_confirm') {
                     this.excludeConfirm = true;
                 } else if (newInteraction?.customId?.startsWith('exclude_')) {
@@ -50,11 +57,7 @@ export class ValoMap {
                     const target = this.mapinfo.find((map) => map.name === mapName);
                     if (target) {
                         target.selected = !target.selected;
-                        Log.info(
-                            `Map "${target.name}" excluded state: ${
-                                target.selected ? 'true' : 'false'
-                            }`
-                        );
+                        Log.info(`Map "${target.name}" excluded state: ${target.selected ? 'true' : 'false'}`);
                         Log.info(`Interaction ID: ${this.i.id}`);
                     }
                 }
@@ -150,16 +153,11 @@ class Button {
 
         const rows: ActionRowBuilder<ButtonBuilder>[] = [];
         for (let i = 0; i < buttons.length; i += 4) {
-            rows.push(
-                new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons.slice(i, i + 4))
-            );
+            rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons.slice(i, i + 4)));
         }
         return rows;
     }
     static confirmButton() {
-        return new ButtonBuilder()
-            .setCustomId('exclude_confirm')
-            .setLabel('確定')
-            .setStyle(ButtonStyle.Success);
+        return new ButtonBuilder().setCustomId('exclude_confirm').setLabel('確定').setStyle(ButtonStyle.Success);
     }
 }

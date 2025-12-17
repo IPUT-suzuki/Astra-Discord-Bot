@@ -5,6 +5,7 @@ import { Log } from './utils/logger.js';
 import { Dice } from './module/dice.js';
 import { ValoMap } from './module/valo/map.js';
 import { initTablesInDB } from './database/db.js';
+import { ValoRank } from './module/valo/rank.js';
 
 const args = process.argv.slice(2);
 export const isDebug = args.includes('debug');
@@ -38,6 +39,9 @@ client.on('interactionCreate', (interaction: Interaction) => {
         const fullcommand = subCommand ? command + ' ' + subCommand : command;
         Log.useCommand(interaction);
         if (fullcommand == 'valo rank') {
+            const valorank = new ValoRank(interaction);
+            await valorank.start();
+            Log.commandSuccess(interaction);
         } else if (fullcommand == 'valo team') {
         } else if (fullcommand == 'valo map') {
             const valomap = new ValoMap(interaction);
