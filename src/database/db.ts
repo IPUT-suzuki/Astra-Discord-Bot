@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
 import { Log } from '../utils/logger.js';
-import type { DBUserRankData, DBuserRankData, DiscordUserData } from '../utils/interface.js';
+import type { DBUserRankData, DiscordUserData } from '../utils/interface.js';
 
 const pool = mysql.createPool({
     host: 'localhost',

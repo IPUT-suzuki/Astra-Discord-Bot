@@ -60,10 +60,7 @@ export class ValoRank {
         let embed = Embed.rankInfo(this.rank, this.user);
         embed.setColor(Colors.Green);
         embed.setTitle('以下の内容でランク情報が登録されています');
-        const rows = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            Button.rankUpdateButton(),
-            Button.rankDeleteButton()
-        );
+        const rows = new ActionRowBuilder<ButtonBuilder>().addComponents(Button.rankUpdateButton(), Button.rankDeleteButton());
         this.interaction.reply({
             embeds: [embed],
             components: [rows],
@@ -88,46 +85,39 @@ export class ValoRank {
                 nowTier: null,
                 timeStamp: null,
             };
-            await this.interaction.update({
-                embeds: [embed],
-                components: [],
-            });
             await this.rankSelectStep();
         }
     }
 
     private async rankSelectStep() {
         await this.categorySelect();
-        if (this.rank.maxCategory === 'ランクなし') {
-            this.rank.nowCategory = this.rank.maxCategory;
-            await this.successRankRegister();
-            return;
-        }
+        await this.tierSelect();
         await this.categorySelect();
-        if (!rankInfo.noTireCategory.includes(this.rank.nowCategory ?? '')) {
-            await this.tierSelect();
-        }
+        await this.tierSelect();
         await this.successRankRegister();
     }
 
     private async categorySelect() {
-        if (!this.interaction.replied) {
+        if (this.rank.maxCategory === 'ランクなし') {
+            this.rank.nowCategory = this.rank.maxCategory;
+            return;
+        }
+        const payload = {
+            embeds: [Embed.rankInfo(this.rank, this.user)],
+            components: [Button.selectRankCategory(this.rank)],
+        };
+        if (this.interaction.isButton()) {
+            await this.interaction.update(payload);
+        } else if (!this.interaction.replied) {
             await this.interaction.reply({
-                embeds: [Embed.rankInfo(this.rank, this.user)],
-                components: [Button.selectRankCategory(this.rank)],
+                ...payload,
                 flags: MessageFlags.Ephemeral,
             });
         } else {
-            await this.interaction.editReply({
-                embeds: [Embed.rankInfo(this.rank, this.user)],
-                components: [Button.selectRankCategory(this.rank)],
-            });
+            await this.interaction.editReply(payload);
         }
-        this.interaction = (await listener(
-            await this.interaction.fetchReply(),
-            'category_',
-            this.interaction
-        )) as StringSelectMenuInteraction;
+        let reply = await this.interaction.fetchReply();
+        this.interaction = (await listener(reply, 'category_', this.interaction)) as StringSelectMenuInteraction;
         if (this.interaction.customId.endsWith('max')) {
             this.rank.maxCategory = this.interaction.values[0] ?? null;
         } else {
@@ -136,15 +126,17 @@ export class ValoRank {
     }
 
     private async tierSelect() {
+        if (rankInfo.noTireCategory?.includes(this.rank.maxCategory!)) {
+            return;
+        } else if (rankInfo.noTireCategory?.includes(this.rank.nowCategory!)) {
+            return;
+        }
         await (this.interaction as StringSelectMenuInteraction).update({
             embeds: [Embed.rankInfo(this.rank, this.user)],
             components: [Button.selectRankTier(this.rank)],
         });
-        this.interaction = (await listener(
-            await this.interaction.fetchReply(),
-            'tier_',
-            this.interaction
-        )) as StringSelectMenuInteraction;
+        let reply = await this.interaction.fetchReply();
+        this.interaction = (await listener(reply, 'tier_', this.interaction)) as StringSelectMenuInteraction;
         if (this.interaction.customId.endsWith('max')) {
             this.rank.maxTier = this.interaction.values[0] ?? null;
         } else {

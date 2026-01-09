@@ -1,4 +1,4 @@
-import type { MapInfo, RankInfo } from './interface.js';
+import type { RankInfo, ValoMapData } from './interface.js';
 
 export const rankInfo: RankInfo = {
     category: [
@@ -45,77 +45,77 @@ export const rankInfo: RankInfo = {
     },
 };
 
-export const mapInfo: MapInfo[] = [
+export const mapInfo: ValoMapData[] = [
     {
-        name: 'フラクチャー',
-        competitive: false,
+        mapName: 'フラクチャー',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999613638611055/Fracture.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999780639019018/Fracture_minimap.png',
+        competitive: false,
     },
     {
-        name: 'ブリーズ',
-        competitive: false,
+        mapName: 'ブリーズ',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999614368284782/Breeze.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999781192794242/Breeze_minimap.png',
+        competitive: true,
     },
     {
-        name: 'スプリット',
-        competitive: true,
+        mapName: 'スプリット',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999672006414356/Split.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999832409182258/Split_minimap.png',
+        competitive: true,
     },
     {
-        name: 'アビス',
-        competitive: true,
+        mapName: 'アビス',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999611495452782/Abyss.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999778793390090/Abyss_minimap.png',
+        competitive: true,
     },
     {
-        name: 'パール',
-        competitive: true,
+        mapName: 'パール',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999613164523560/Pearl.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999780190355539/Pearl_minimap.png',
+        competitive: true,
     },
     {
-        name: 'ヘイブン',
-        competitive: true,
+        mapName: 'ヘイブン',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999672417583135/Haven.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999832828739724/Haven_minimap.png',
+        competitive: true,
     },
     {
-        name: 'アセント',
-        competitive: false,
+        mapName: 'アセント',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999671654088774/Ascent.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999831885152316/Ascent_minimap.png',
+        competitive: false,
     },
     {
-        name: 'アイスボックス',
-        competitive: false,
+        mapName: 'アイスボックス',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999671381590036/Icebox.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999831163605093/Icebox_minimap.png',
+        competitive: false,
     },
     {
-        name: 'ロータス',
-        competitive: false,
+        mapName: 'ロータス',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999612678111353/Lotus.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999779640639549/Lotus_minimap.png',
+        competitive: false,
     },
     {
-        name: 'サンセット',
-        competitive: true,
+        mapName: 'サンセット',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999611981725707/Sunset.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999779187789986/Sunset_minimap.png',
+        competitive: false,
     },
     {
-        name: 'カロード',
-        competitive: true,
+        mapName: 'カロード',
         mapImage: 'https://media.discordapp.net/attachments/1385999084522831902/1389404962668286192/Corrode.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1389404925993160894/Corrode_minimap.png',
+        competitive: true,
     },
     {
-        name: 'バインド',
-        competitive: true,
+        mapName: 'バインド',
         mapImage: 'https://cdn.discordapp.com/attachments/1385999084522831902/1385999672807522355/Bind.png',
         miniMapImage: 'https://cdn.discordapp.com/attachments/1385999111492468836/1385999833193517056/Bind_minimap.png',
+        competitive: true,
     },
 ];

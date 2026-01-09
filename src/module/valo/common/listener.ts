@@ -1,5 +1,13 @@
-import type { ButtonInteraction, Message, MessageComponentInteraction, StringSelectMenuInteraction } from 'discord.js';
-import { timeoutEmbed, sendTimeOutEmbed } from './timeout.js';
+import {
+    Colors,
+    EmbedBuilder,
+    type ButtonInteraction,
+    type ChatInputCommandInteraction,
+    type Message,
+    type MessageComponentInteraction,
+    type StringSelectMenuInteraction,
+} from 'discord.js';
+import { Log } from '../../../utils/logger.js';
 
 export async function listener(
     reply: Message,
@@ -8,7 +16,7 @@ export async function listener(
     time?: number | null
 ): Promise<MessageComponentInteraction | StringSelectMenuInteraction | ButtonInteraction | null> {
     return new Promise((resolve, reject) => {
-        const collector = reply.createMessageComponentCollector({ time: time ?? 6_000 });
+        const collector = reply.createMessageComponentCollector({ time: time ?? 600_000 });
 
         collector.on('collect', async (btnInteraction) => {
             if (btnInteraction.customId.startsWith(prefix)) {
@@ -26,4 +34,19 @@ export async function listener(
             }
         });
     });
+}
+
+async function sendTimeOutEmbed(interaction: ChatInputCommandInteraction) {
+    await interaction.editReply({
+        embeds: [timeoutEmbed()],
+        components: [],
+    });
+}
+
+function timeoutEmbed(): EmbedBuilder {
+    Log.error('Command time out');
+    return new EmbedBuilder()
+        .setColor(Colors.Red)
+        .setTitle('TIMEOUT')
+        .setDescription('一定時間操作が行われなかった為プロセスを強制終了しました');
 }
