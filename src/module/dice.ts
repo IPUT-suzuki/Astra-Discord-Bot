@@ -1,33 +1,32 @@
 import type { ChatInputCommandInteraction, GuildMember } from 'discord.js';
 import { Colors, EmbedBuilder } from 'discord.js';
 import { Log } from '../utils/logger.js';
-import type { slashDiceData } from '../utils/interface.js';
+import type { DiscordUserData } from '../utils/interface.js';
 
 export class Dice {
-    i: ChatInputCommandInteraction;
-    data: slashDiceData;
+    interaction: ChatInputCommandInteraction;
+    user: DiscordUserData;
     constructor(interaction: ChatInputCommandInteraction) {
-        this.i = interaction;
-        this.data = {
-            name: this.i.member ? (this.i.member as GuildMember).displayName : this.i.user.username,
-            icon: this.i.user.displayAvatarURL(),
-            value: Math.floor(Math.random() * 100) + 1,
+        this.interaction = interaction;
+        this.user = {
+            userName: (interaction.member as GuildMember)?.displayName ?? interaction.user.username,
+            userId: interaction.user.id,
+            userIcon: interaction.user.displayAvatarURL(),
         };
-        Log.debug(JSON.stringify(this.data, null, 2));
     }
     async start() {
-        const embed = Embed.result(this.data);
-        await this.i.reply({
-            embeds: [embed],
+        const value = Math.floor(Math.random() * 100) + 1;
+        await this.interaction.reply({
+            embeds: [Embed.result(this.user, value)],
         });
     }
 }
 
 class Embed {
-    static result(data: slashDiceData) {
+    static result(userData: DiscordUserData, value: number) {
         return new EmbedBuilder()
-            .setAuthor({ name: data.name, iconURL: data.icon })
-            .setTitle(`ダイス結果 : ${data.value}`)
+            .setAuthor({ name: userData.userName, iconURL: userData.userIcon })
+            .setTitle(`ダイス結果 : ${value}`)
             .setColor(Colors.Green);
     }
 }
