@@ -1,0 +1,18 @@
+[1mdiff --git a/src/module/valo/map.ts b/src/module/valo/map.ts[m
+[1mindex 99882ce..a6755a0 100644[m
+[1m--- a/src/module/valo/map.ts[m
+[1m+++ b/src/module/valo/map.ts[m
+[36m@@ -68,11 +68,8 @@[m [mexport class ValoMap {[m
+             } else {[m
+                 await this.interaction.reply(payload);[m
+             }[m
+[31m-            this.interaction = (await listener([m
+[31m-                await this.interaction.fetchReply(),[m
+[31m-                'on_',[m
+[31m-                this.interaction[m
+[31m-            )) as ButtonInteraction;[m
+[32m+[m[32m            const reply = await this.interaction.fetchReply();[m
+[32m+[m[32m            this.interaction = (await listener(reply, 'on_', this.interaction)) as ButtonInteraction;[m
+             if (this.interaction.customId.endsWith('confirm')) {[m
+                 break;[m
+             } else if (this.interaction.customId.includes('_exclude_')) {[m
