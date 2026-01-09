@@ -1,6 +1,6 @@
-import type { RankInfo, ValoMapData } from './interface.js';
+import type { ValoRankData, ValoMapData } from './interface.js';
 
-export const rankInfo: RankInfo = {
+export const rankInfo: ValoRankData = {
     category: [
         'ランクなし',
         'アイアン',

@@ -68,11 +68,8 @@ export class ValoMap {
             } else {
                 await this.interaction.reply(payload);
             }
-            this.interaction = (await listener(
-                await this.interaction.fetchReply(),
-                'on_',
-                this.interaction
-            )) as ButtonInteraction;
+            const reply = await this.interaction.fetchReply();
+            this.interaction = (await listener(reply, 'on_', this.interaction)) as ButtonInteraction;
             if (this.interaction.customId.endsWith('confirm')) {
                 break;
             } else if (this.interaction.customId.includes('_exclude_')) {
