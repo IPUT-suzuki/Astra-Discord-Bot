@@ -27,6 +27,7 @@ export const commands = [
                             { name: 'random', value: 'random' },
                             { name: 'max', value: 'max' },
                             { name: 'now', value: 'now' },
+                            { name: 'average', value: 'average' },
                         ],
                     },
                     {
