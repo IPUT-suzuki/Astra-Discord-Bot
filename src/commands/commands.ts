@@ -30,7 +30,7 @@ export const commands = [
                         ],
                     },
                     {
-                        name: 'exclude-users',
+                        name: 'exclude-option',
                         description: '特定ユーザーを除外する場合は有効にしてください',
                         type: 5,
                         required: false,

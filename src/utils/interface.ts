@@ -12,7 +12,6 @@ export interface ValoMapData {
     competitive: boolean;
 }
 
-//ここが新しく作成してる範囲
 export interface DiscordUserData {
     userName: string;
     userId: string;

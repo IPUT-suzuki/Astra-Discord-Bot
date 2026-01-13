@@ -25,7 +25,7 @@ export async function listener(
             }
         });
 
-        collector.on('end', async (collected, reason) => {
+        collector.on('end', async (_, reason) => {
             if (reason === 'time' && interaction) {
                 await sendTimeOutEmbed(interaction);
                 reject(new Error('タイムアウトにより処理を中断'));

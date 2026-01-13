@@ -7,6 +7,7 @@ import {
     MessageFlags,
     StringSelectMenuBuilder,
     StringSelectMenuInteraction,
+    User,
     type ButtonInteraction,
     type ChatInputCommandInteraction,
     type GuildMember,
@@ -18,12 +19,12 @@ import { listener } from './common/listener.js';
 
 export class ValoRank {
     interaction: ChatInputCommandInteraction | StringSelectMenuInteraction | ButtonInteraction;
-    originInteraction: ChatInputCommandInteraction;
     user: DiscordUserData;
     rank: DBUserRankData;
-    constructor(interaction: ChatInputCommandInteraction) {
+    recipient: User | null;
+    recipientUser: DiscordUserData | null;
+    constructor(interaction: ChatInputCommandInteraction | ButtonInteraction, recipient?: User) {
         this.interaction = interaction;
-        this.originInteraction = interaction;
         this.user = {
             userName: (interaction.member as GuildMember)?.displayName ?? interaction.user.username,
             userId: interaction.user.id,
@@ -36,6 +37,14 @@ export class ValoRank {
             nowTier: null,
             timeStamp: null,
         };
+        this.recipient = recipient ?? null;
+        this.recipientUser = recipient
+            ? {
+                  userName: recipient.username,
+                  userId: recipient.id,
+                  userIcon: recipient.displayAvatarURL(),
+              }
+            : null;
     }
 
     async start() {
@@ -88,8 +97,7 @@ export class ValoRank {
             await this.rankSelectStep();
         }
     }
-
-    private async rankSelectStep() {
+    async rankSelectStep() {
         await this.categorySelect();
         await this.tierSelect();
         await this.categorySelect();
@@ -103,20 +111,28 @@ export class ValoRank {
             return;
         }
         const payload = {
-            embeds: [Embed.rankInfo(this.rank, this.user)],
+            embeds: [Embed.rankInfo(this.rank, this.recipientUser ?? this.user)],
             components: [Button.selectRankCategory(this.rank)],
         };
-        if (this.interaction.isButton()) {
+        let message = null;
+        if (this.recipient) {
+            payload.embeds[0]
+                ?.setTitle('ランク登録のお願い')
+                .setDescription(
+                    `<@${this.recipientUser!.userId}>さん、VALORANTのランク登録が未登録です\n以下から登録処理を行ってください`
+                );
+
+            message = await this.recipient.send(payload);
+            this.recipient = null;
+        } else if (this.interaction.isButton() || this.interaction.isStringSelectMenu()) {
             await this.interaction.update(payload);
-        } else if (!this.interaction.replied) {
+        } else if (this.interaction.isRepliable()) {
             await this.interaction.reply({
                 ...payload,
                 flags: MessageFlags.Ephemeral,
             });
-        } else {
-            await this.interaction.editReply(payload);
         }
-        let reply = await this.interaction.fetchReply();
+        let reply = message ?? (await this.interaction.fetchReply());
         this.interaction = (await listener(reply, 'category_', this.interaction)) as StringSelectMenuInteraction;
         if (this.interaction.customId.endsWith('max')) {
             this.rank.maxCategory = this.interaction.values[0] ?? null;
@@ -150,11 +166,11 @@ export class ValoRank {
             components: [],
         });
         this.rank.timeStamp = await this.getTimeStamp();
-        let embed = Embed.rankInfo(this.rank, this.user);
+        let embed = Embed.rankInfo(this.rank, this.recipientUser ?? this.user);
         embed.setTitle('以下の内容でランク情報を登録しました');
         embed.setColor(Colors.Green);
         embed.setFooter({ text: '/valo rankコマンドで何度でも更新・削除が可能です' });
-        await insertUserRankToDB(this.user, this.rank);
+        await insertUserRankToDB(this.recipientUser ?? this.user, this.rank);
         await (this.interaction as StringSelectMenuInteraction).followUp({
             embeds: [embed],
             components: [],
