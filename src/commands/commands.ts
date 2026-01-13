@@ -24,10 +24,10 @@ export const commands = [
                         type: 3,
                         required: true,
                         choices: [
-                            { name: 'random', value: 'random' },
                             { name: 'max', value: 'max' },
                             { name: 'now', value: 'now' },
                             { name: 'average', value: 'average' },
+                            { name: 'random', value: 'random' },
                         ],
                     },
                     {
