@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
-import { Log } from '../utils/logger.js';
-import type { DBUserRankData, DiscordUserData } from '../utils/interface.js';
+import type { DBUserRankData, UserRankRow } from '../utils/interface.js';
+import { generateTimeStamp } from '../commands/handlers/common/uitls.js';
+import { timeStamp } from 'console';
 
 const pool = mysql.createPool({
     host: 'localhost',
@@ -17,34 +18,65 @@ export async function initTablesInDB() {
     const createUserRank = `
         CREATE TABLE IF NOT EXISTS userrank (
             userid VARCHAR(32) NOT NULL PRIMARY KEY,
-            maxCategory VARCHAR(32),
-            maxTier VARCHAR(32),
-            nowCategory VARCHAR(32),
-            nowTier VARCHAR(32),
+            riotName VARCHAR(32),
+            riotTag VARCHAR(32),
+            nowRank VARCHAR(32),
+            nowRR VARCHAR(32),
+            maxRank VARCHAR(32),
             timeStamp VARCHAR(32)
         );
     `;
+    const createValoTeamSessions = `
+        CREATE TABLE IF NOT EXISTS valo_team_sessions(
+            session_id VARCHAR(36) NOT NULL PRIMARY KEY
+        );
+    `;
+    const createValoTeamMembers = `
+        CREATE TABLE IF NOT EXISTS valo_team_members (
+            session_id VARCHAR(36) NOT NULL,
+            user_id VARCHAR(32) NOT NULL,
+            PRIMARY KEY (session_id, user_id),
+            FOREIGN KEY (session_id) REFERENCES valo_team_sessions(session_id)
+        );
+    `;
     const conn = await pool.getConnection();
-    await conn.query(createUserRank);
-    conn.release();
-    Log.success('Database tables initialized successfully.');
+    try {
+        await conn.query(createUserRank);
+        await conn.query(createValoTeamSessions);
+        await conn.query(createValoTeamMembers);
+    } finally {
+        conn.release();
+    }
 }
 
-export async function insertUserRankToDB(user: DiscordUserData, rank: DBUserRankData) {
+//ランクとかチーム分けとかそれ関連
+export async function insertUserRankToDB(data: DBUserRankData) {
     const conn = await pool.getConnection();
-    await conn.query(
-        `INSERT INTO userrank (userid, maxCategory, maxTier, nowCategory, nowTier, timeStamp)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-            maxCategory = VALUES(maxCategory),
-            maxTier = VALUES(maxTier),
-            nowCategory = VALUES(nowCategory),
-            nowTier = VALUES(nowTier),
-            timeStamp = VALUES(timeStamp)
-        `,
-        [user.userId, rank.maxCategory, rank.maxTier, rank.nowCategory, rank.nowTier, rank.timeStamp]
-    );
-    conn.release();
+    try {
+        await conn.query(
+            `INSERT INTO userrank (userid, riotName, riotTag, nowRank, nowRR, maxRank, timeStamp)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                riotName = VALUES(riotName),
+                riotTag = VALUES(riotTag),
+                nowRank = VALUES(nowRank),
+                nowRR = VALUES(nowRR),
+                maxRank = VALUES(maxRank),
+                timeStamp = VALUES(timeStamp)
+            `,
+            [
+                data.discordData.id,
+                data.riotData.name,
+                data.riotData.tag,
+                data.riotData.nowRank,
+                data.riotData.nowRR,
+                data.riotData.maxRank,
+                data.timestamp,
+            ],
+        );
+    } finally {
+        conn.release();
+    }
 }
 
 export async function deleteUserRankFromDB(userid: string) {
@@ -55,7 +87,55 @@ export async function deleteUserRankFromDB(userid: string) {
 
 export async function getUserRankFromDB(userid: string) {
     const conn = await pool.getConnection();
-    const [rows] = (await conn.query('SELECT * FROM userrank WHERE userid = ?', [userid])) as [DBUserRankData[], any];
+    const [rows] = await conn.query('SELECT * FROM userrank WHERE userid = ?', [userid]);
+    const row = (rows as UserRankRow[])[0];
     conn.release();
-    return rows?.[0] ?? null;
+    if (!row) return null;
+    return {
+        discordData: { id: row.userid },
+        riotData: {
+            name: row.riotName,
+            tag: row.riotTag,
+            nowRank: row.nowRank,
+            nowRR: row.nowRR,
+            maxRank: row.maxRank,
+        },
+        timestamp: row.timeStamp ?? '',
+    };
+}
+
+//summonコマンド関連
+export async function getMemberRankFromDB(userIds: string[]) {
+    const conn = await pool.getConnection();
+    const [rows] = await conn.query('SELECT * FROM userrank WHERE userid IN (?)', [userIds]);
+    conn.release();
+    const result: Record<string, any> = {};
+    for (const row of rows as UserRankRow[]) {
+        result[row.userid] = {
+            discordData: { id: row.userid },
+            riotData: {
+                name: row.riotName,
+                tag: row.riotTag,
+                nowRank: row.nowRank,
+                nowRR: row.nowRR,
+                maxRank: row.maxRank,
+            },
+            timestamp: row.timeStamp ?? '',
+        };
+    }
+    return result;
+}
+
+export async function insertSessionIdToDB(id: string) {
+    const conn = await pool.getConnection();
+    try {
+        const conn = await pool.getConnection();
+        try {
+            await conn.query(`INSERT INTO valo_team_sessions (session_id) VALUES (?)`, [id]);
+        } finally {
+            conn.release();
+        }
+    } finally {
+        conn.release();
+    }
 }

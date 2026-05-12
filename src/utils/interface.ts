@@ -1,27 +1,43 @@
-export interface ValoRankData {
-    category: string[];
-    tier: string[];
-    noTireCategory: string[];
-    rankIcon: { [key: string]: string };
+export interface DBUserRankData {
+    discordData: {
+        id: string;
+    };
+    riotData: RiotUserData;
+    timestamp: string;
 }
 
-export interface ValoMapData {
-    mapName: string;
-    mapImage: string;
-    miniMapImage: string;
-    competitive: boolean;
+export interface RiotUserData {
+    name: string;
+    tag: string;
+    nowRank: string;
+    nowRR: string;
+    maxRank: string;
 }
 
 export interface DiscordUserData {
-    userName: string;
-    userId: string;
-    userIcon: string;
+    id: string;
+    name: string;
+    icon: string;
 }
 
-export interface DBUserRankData {
-    maxCategory: string | null;
-    maxTier: string | null;
-    nowCategory: string | null;
-    nowTier: string | null;
-    timeStamp: string | null;
+export interface ValoTeamUserData {
+    discordData: { id: string };
+    riotData: RiotUserData | null;
+    timestamp: string | null;
+}
+
+export interface ValoTeamSplitData {
+    teamA: { id: string }[];
+    teamB: { id: string }[];
+    diff: number;
+}
+
+export interface UserRankRow {
+    userid: string;
+    riotName: string;
+    riotTag: string;
+    nowRank: string;
+    nowRR: string;
+    maxRank: string;
+    timeStamp: string;
 }

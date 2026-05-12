@@ -1,61 +1,85 @@
+//main file
 import 'dotenv/config';
-import { Client, IntentsBitField } from 'discord.js';
-import type { Interaction } from 'discord.js';
-import { Log } from './utils/logger.js';
-import { Dice } from './module/dice.js';
-import { ValoMap } from './module/valo/map.js';
+import { Client, Events, GatewayIntentBits, type Interaction } from 'discord.js';
+
+import { handleTestCommand } from './commands/handlers/test.js';
+import { handleValoRankCommand } from './commands/handlers/rank.js';
 import { initTablesInDB } from './database/db.js';
-import { ValoRank } from './module/valo/rank.js';
-import { ValoTeam } from './module/valo/team.js';
+import { registerCommands } from './commands/register.js';
+import { handleValoTeamCommand } from './commands/handlers/team.js';
+import { handleVcSummonCommand } from './commands/handlers/vc-summon.js';
 
-const args = process.argv.slice(2);
-export const isDebug = args.includes('debug');
-if (isDebug) {
-    Log.main('Boot is debug mode');
+const token = process.env.TOKEN;
+if (!token) {
+    console.error('Token is not set. Please set TOKEN in your .env file.');
+    process.exit(1);
 }
-await initTablesInDB(); //データベースの初期化
-
+await registerCommands();
 const client = new Client({
     intents: [
-        IntentsBitField.Flags.Guilds,
-        IntentsBitField.Flags.GuildMembers,
-        IntentsBitField.Flags.GuildMessages,
-        IntentsBitField.Flags.MessageContent,
-        IntentsBitField.Flags.GuildVoiceStates,
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildVoiceStates,
     ],
 });
 
-client.login(process.env.TOKEN);
-
-client.on('clientReady', async (c) => {
-    Log.main(c.user.tag + 'is Online');
+client.once(Events.ClientReady, (client) => {
+    console.log('Bot online : ', client.user.tag);
 });
 
-client.on('interactionCreate', (interaction: Interaction) => {
+client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     if (!interaction.isChatInputCommand()) return;
-    // 並列で非同期処理
-    (async () => {
-        const command = interaction.commandName;
-        const subCommand = interaction.options.getSubcommand(false);
-        const fullcommand = subCommand ? command + ' ' + subCommand : command;
-        Log.useCommand(interaction);
-        if (fullcommand == 'valo rank') {
-            const valorank = new ValoRank(interaction);
-            await valorank.start();
-            Log.commandSuccess(interaction);
-        } else if (fullcommand == 'valo team') {
-            const valoteam = new ValoTeam(interaction);
-            await valoteam.start();
-            Log.commandSuccess(interaction);
-        } else if (fullcommand == 'valo map') {
-            const valomap = new ValoMap(interaction);
-            await valomap.start();
-            Log.commandSuccess(interaction);
-        } else if (fullcommand == 'valo list') {
-        } else if (fullcommand == 'dice') {
-            const dice = new Dice(interaction);
-            await dice.start();
-            Log.commandSuccess(interaction);
+    try {
+        if (interaction.commandName === 'test') {
+            await handleTestCommand(interaction);
+        } else if (interaction.commandName === 'valo') {
+            if (interaction.options.getSubcommand() === 'rank') {
+                await handleValoRankCommand(interaction);
+            } else if (interaction.options.getSubcommand() === 'map') {
+            } else if (interaction.options.getSubcommand() === 'team') {
+                await handleValoTeamCommand(interaction);
+            } else if (interaction.options.getSubcommand() === 'vc-summon') {
+                await handleVcSummonCommand(interaction);
+            }
         }
-    })();
+    } catch (error) {
+        console.error('Command error : ', error);
+
+        if (interaction.deferred || interaction.replied) {
+            await interaction.editReply('Command failed.');
+        } else {
+            await interaction.reply({
+                content: 'Command failed.',
+                ephemeral: true,
+            });
+        }
+    }
 });
+
+client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+    // チャンネルから誰かが抜けた場合のみ判定
+    const channel = oldState.channel;
+    if (
+        channel &&
+        channel.type === 2 && // VoiceChannel
+        channel.members.size === 0 &&
+        (channel.name.startsWith('Attacker(自動生成)') ||
+            channel.name.startsWith('Defender(自動生成)'))
+    ) {
+        try {
+            await channel.delete('自動生成VCの自動削除');
+            console.log(`Deleted empty auto-generated VC: ${channel.name}`);
+        } catch (e) {
+            console.error('VC自動削除エラー:', e);
+        }
+    }
+});
+
+client.on(Events.Error, (error) => {
+    console.error('Discord client error:', error);
+});
+
+await initTablesInDB();
+
+await client.login(token);

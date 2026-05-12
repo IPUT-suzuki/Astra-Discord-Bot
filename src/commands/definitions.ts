@@ -1,0 +1,57 @@
+import { SlashCommandBuilder } from 'discord.js';
+
+export const commandDefinitions = [
+    new SlashCommandBuilder()
+        .setName('valo')
+        .setDescription('VALORANT関連コマンド')
+        .addSubcommand((sub) =>
+            sub
+                .setName('rank')
+                .setDescription('VALORANTのランク情報を連携・表示します')
+                .addBooleanOption((option) =>
+                    option
+                        .setName('delete_option')
+                        .setDescription('連携されているランクを解除します')
+                        .setRequired(false),
+                ),
+        )
+        .addSubcommand((sub) =>
+            sub
+                .setName('team')
+                .setDescription('ランクデータに基づきチーム分けを実行します')
+                .addStringOption((option) =>
+                    option
+                        .setName('sort_option')
+                        .setDescription('チーム分けの基準となるランクを設定します')
+                        .setRequired(true)
+                        .setChoices({ name: 'now', value: 'now' }, { name: 'max', value: 'max' }),
+                ),
+        )
+        .addSubcommand((sub) =>
+            sub
+                .setName('vc-summon')
+                .setDescription('1箇所のVCにユーザーを集めます')
+                .addStringOption((option) =>
+                    option
+                        .setName('session_id')
+                        .setDescription('/valo teamコマンドで生成したSession-IDを入力してください')
+                        .setRequired(true),
+                ),
+        )
+        .addSubcommand((sub) =>
+            sub
+                .setName('map')
+                .setDescription('VALORANTのマップ抽選を行います')
+                .addStringOption((option) =>
+                    option
+                        .setName('option')
+                        .setDescription('抽選に使用するマッププールを選択してください')
+                        .setRequired(true)
+                        .setChoices(
+                            { name: 'all', value: 'all' },
+                            { name: 'competitive', value: 'competitive' },
+                            { name: 'exclude', value: 'exclude' },
+                        ),
+                ),
+        ),
+].map((command) => command.toJSON());
