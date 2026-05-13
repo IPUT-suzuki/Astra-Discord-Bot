@@ -3,6 +3,7 @@
     "compilerOptions": {
         // File Layout
         // "rootDir": "./src",
+        "rootDir": "./src",
         "outDir": "./build",
 
         // Environment Settings

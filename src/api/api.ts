@@ -1,7 +1,7 @@
 import axios from 'axios';
-import type { RiotUserData } from '../utils/interface.js';
 import { ApiRequestError, MissingApiKeyError, UserNotFoundError } from './errors.js';
 import { API_TIMEOUT_MS, REQUEST_PLATFORMS, REQUEST_REGION } from '../utils/config.js';
+import type { RiotUserData } from '../utils/interface.js';
 
 export async function apiGetUserRankData(name: string, tag: string): Promise<RiotUserData> {
     const apiKey = process.env.HENRIKDEV_API_KEY;

@@ -14,9 +14,7 @@ export async function handleVcSummonCommand(i: ChatInputCommandInteraction) {
     const sessionId = i.options.getString('session_id', true);
     if (!(await Check.isValidUUID(i, sessionId))) return;
     const guild = i.guild;
-    const targetVCs = guild?.channels.cache.filter(
-        (ch) => ch.type === 2 && ch.name.includes(sessionId),
-    );
+    const targetVCs = guild?.channels.cache.filter((ch) => ch.type === 2 && ch.name.includes(sessionId));
     if (!targetVCs?.size) {
         await i.reply({ embeds: [Embed.noVoiceChannel(sessionId)], flags: MessageFlags.Ephemeral });
         return;

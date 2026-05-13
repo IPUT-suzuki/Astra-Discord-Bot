@@ -1,20 +1,17 @@
-//main file
+// main file
 import 'dotenv/config';
 import { Client, Events, GatewayIntentBits, type Interaction } from 'discord.js';
-
-import { handleTestCommand } from './commands/handlers/test.js';
 import { handleValoRankCommand } from './commands/handlers/rank.js';
-import { initTablesInDB } from './database/db.js';
-import { registerCommands } from './commands/register.js';
 import { handleValoTeamCommand } from './commands/handlers/team.js';
 import { handleVcSummonCommand } from './commands/handlers/vc-summon.js';
+import { registerCommands } from './commands/register.js';
+import { initTablesInDB } from './database/db.js';
 
 const token = process.env.TOKEN;
 if (!token) {
     console.error('Token is not set. Please set TOKEN in your .env file.');
     process.exit(1);
 }
-await registerCommands();
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -31,9 +28,7 @@ client.once(Events.ClientReady, (client) => {
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     if (!interaction.isChatInputCommand()) return;
     try {
-        if (interaction.commandName === 'test') {
-            await handleTestCommand(interaction);
-        } else if (interaction.commandName === 'valo') {
+        if (interaction.commandName === 'valo') {
             if (interaction.options.getSubcommand() === 'rank') {
                 await handleValoRankCommand(interaction);
             } else if (interaction.options.getSubcommand() === 'map') {
@@ -64,8 +59,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
         channel &&
         channel.type === 2 && // VoiceChannel
         channel.members.size === 0 &&
-        (channel.name.startsWith('Attacker(自動生成)') ||
-            channel.name.startsWith('Defender(自動生成)'))
+        (channel.name.startsWith('Attacker(自動生成)') || channel.name.startsWith('Defender(自動生成)'))
     ) {
         try {
             await channel.delete('自動生成VCの自動削除');

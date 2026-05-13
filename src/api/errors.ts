@@ -1,4 +1,4 @@
-import { Colors, Embed, EmbedBuilder } from 'discord.js';
+import { Colors, EmbedBuilder } from 'discord.js';
 
 // errors module
 export class UserNotFoundError extends Error {

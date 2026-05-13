@@ -1,21 +1,21 @@
-//タイムゾーン設定
+// タイムゾーン設定
 export const DEFAULT_TIME_ZONE = 'Asia/Tokyo';
 
-//データ更新関連の設定
+// データ更新関連の設定
 export const DB_UPDATE_TIME_UNIT = 'hours'; // DB更新の差分単位
 export const DB_UPDATE_INTERVAL = 1; // DB更新の基準時間 単位はDB_UPDATE_TIME_UNITに従う
 
-//API設定
-export const REQUEST_REGION = 'ap'; //APIででどの地域のデータを取得するか
+// API設定
+export const REQUEST_REGION = 'ap'; // APIでどの地域のデータを取得するか
 export const REQUEST_PLATFORMS = 'pc';
-export const API_TIMEOUT_MS = 1000 * 4; //4秒間
+export const API_TIMEOUT_MS = 1000 * 4; // 4秒間
 
-//VALO TEAM コマンド関連設定
+// VALO TEAM コマンド関連設定
 export const VALO_TEAM_COMMAND_OPTION = 'option';
-export const VALO_VC_MIN_VALUE = 2; //default 2
-export const VALO_VC_MAX_VALUE = 25; //default 25
+export const VALO_VC_MIN_VALUE = 2; // default 2
+export const VALO_VC_MAX_VALUE = 25; // default 25
 export const VALO_RANK_VALUE: Record<string, number> = {
-    //各ランクの数値
+    // 各ランクの数値
     Unrated: 4.0,
     'Unknown 1': 4.0,
     'Unknown 2': 4.0,

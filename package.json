@@ -4,8 +4,8 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "debug": "node build/index.js debug",
-        "start": "node build/src_dev/index.js",
+        "debug": "node build/src/index.js, debug",
+        "start": "node build/src/index.js",
         "compile": "tsc -p .",
         "autocompile": "tsc -w"
     },

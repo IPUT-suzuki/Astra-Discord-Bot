@@ -1,8 +1,6 @@
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
 import type { DBUserRankData, UserRankRow } from '../utils/interface.js';
-import { generateTimeStamp } from '../commands/handlers/common/uitls.js';
-import { timeStamp } from 'console';
 
 const pool = mysql.createPool({
     host: 'localhost',
@@ -26,24 +24,9 @@ export async function initTablesInDB() {
             timeStamp VARCHAR(32)
         );
     `;
-    const createValoTeamSessions = `
-        CREATE TABLE IF NOT EXISTS valo_team_sessions(
-            session_id VARCHAR(36) NOT NULL PRIMARY KEY
-        );
-    `;
-    const createValoTeamMembers = `
-        CREATE TABLE IF NOT EXISTS valo_team_members (
-            session_id VARCHAR(36) NOT NULL,
-            user_id VARCHAR(32) NOT NULL,
-            PRIMARY KEY (session_id, user_id),
-            FOREIGN KEY (session_id) REFERENCES valo_team_sessions(session_id)
-        );
-    `;
     const conn = await pool.getConnection();
     try {
         await conn.query(createUserRank);
-        await conn.query(createValoTeamSessions);
-        await conn.query(createValoTeamMembers);
     } finally {
         conn.release();
     }
@@ -124,18 +107,4 @@ export async function getMemberRankFromDB(userIds: string[]) {
         };
     }
     return result;
-}
-
-export async function insertSessionIdToDB(id: string) {
-    const conn = await pool.getConnection();
-    try {
-        const conn = await pool.getConnection();
-        try {
-            await conn.query(`INSERT INTO valo_team_sessions (session_id) VALUES (?)`, [id]);
-        } finally {
-            conn.release();
-        }
-    } finally {
-        conn.release();
-    }
 }

@@ -1,10 +1,4 @@
-import {
-    Colors,
-    EmbedBuilder,
-    MessageFlags,
-    type ChatInputCommandInteraction,
-    type GuildMember,
-} from 'discord.js';
+import { Colors, EmbedBuilder, MessageFlags, type ChatInputCommandInteraction, type GuildMember } from 'discord.js';
 export class Check {
     static async isCommandChannel(i: ChatInputCommandInteraction) {
         //DMでのコマンドを拒否
@@ -45,11 +39,7 @@ export class Check {
         return result;
     }
 
-    static async errorSender(
-        i: ChatInputCommandInteraction,
-        payload: EmbedBuilder,
-        ephemeral: boolean,
-    ) {
+    static async errorSender(i: ChatInputCommandInteraction, payload: EmbedBuilder, ephemeral: boolean) {
         return await i.reply({
             embeds: [payload],
             flags: ephemeral ? MessageFlags.Ephemeral : undefined,
@@ -68,18 +58,14 @@ class Embed {
     static commandUsedInDM() {
         return new EmbedBuilder()
             .setTitle('ERROR')
-            .setDescription(
-                'このコマンドはサーバー内でのみ使用できます\nサーバー内で実行してください',
-            )
+            .setDescription('このコマンドはサーバー内でのみ使用できます\nサーバー内で実行してください')
             .setColor(Colors.Red);
     }
 
     static vcUserUnderLimit(value: number) {
         return new EmbedBuilder()
             .setTitle('ERROR')
-            .setDescription(
-                `人数が不正です\nVCに${value}名以上のユーザーが接続していることを確認してください`,
-            )
+            .setDescription(`人数が不正です\nVCに${value}名以上のユーザーが接続していることを確認してください`)
             .setColor(Colors.Red);
     }
 
