@@ -39,19 +39,6 @@ export const commandDefinitions = [
                 ),
         )
         .addSubcommand((sub) =>
-            sub
-                .setName('map')
-                .setDescription('VALORANTのマップ抽選を行います')
-                .addStringOption((option) =>
-                    option
-                        .setName('option')
-                        .setDescription('抽選に使用するマッププールを選択してください')
-                        .setRequired(true)
-                        .setChoices(
-                            { name: 'all', value: 'all' },
-                            { name: 'competitive', value: 'competitive' },
-                            { name: 'exclude', value: 'exclude' },
-                        ),
-                ),
+            sub.setName('map').setDescription('VALORANTのマップをランダムに出力します'),
         ),
 ].map((command) => command.toJSON());
