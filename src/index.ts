@@ -6,6 +6,7 @@ import { handleValoTeamCommand } from './commands/handlers/team.js';
 import { handleVcSummonCommand } from './commands/handlers/vc-summon.js';
 import { registerCommands } from './commands/register.js';
 import { initTablesInDB } from './database/db.js';
+import { handleValoMapCommand } from './commands/handlers/map.js';
 
 const token = process.env.TOKEN;
 if (!token) {
@@ -32,6 +33,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
             if (interaction.options.getSubcommand() === 'rank') {
                 await handleValoRankCommand(interaction);
             } else if (interaction.options.getSubcommand() === 'map') {
+                await handleValoMapCommand(interaction);
             } else if (interaction.options.getSubcommand() === 'team') {
                 await handleValoTeamCommand(interaction);
             } else if (interaction.options.getSubcommand() === 'vc-summon') {
@@ -59,7 +61,8 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
         channel &&
         channel.type === 2 && // VoiceChannel
         channel.members.size === 0 &&
-        (channel.name.startsWith('Attacker(自動生成)') || channel.name.startsWith('Defender(自動生成)'))
+        (channel.name.startsWith('Attacker(自動生成)') ||
+            channel.name.startsWith('Defender(自動生成)'))
     ) {
         try {
             await channel.delete('自動生成VCの自動削除');

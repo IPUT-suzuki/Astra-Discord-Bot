@@ -13,11 +13,10 @@ import {
 } from 'discord.js';
 import { randomUUID } from 'crypto';
 import { Check } from './common/check.js';
-import { diffFromNow, generateTimeStamp } from './common/uitls.js';
+import { diffFromNow, generateTimeStamp } from './common/utils.js';
 import { getMemberRankFromDB, insertUserRankToDB } from '../../database/db.js';
-import { apiGetUserRankData } from '../../api/api.js';
+import { apiGetUserRankData } from '../../api/henrik-api.js';
 import { valoRankIcon } from '../../utils/icon.js';
-import { testUserData } from '../../testdata/testUserData.js';
 import type { ValoTeamSplitData, ValoTeamUserData } from '../../utils/interface.js';
 import {
     DB_UPDATE_INTERVAL,
@@ -54,7 +53,13 @@ export async function handleValoTeamCommand(i: ChatInputCommandInteraction) {
             //セレクトメニュー処理
             page = Number(interaction.values[0]);
             await interaction.update({
-                embeds: Embed.splitTeamResault(valoTeamData, splitTeamData, page, sortType, i.user.id),
+                embeds: Embed.splitTeamResault(
+                    valoTeamData,
+                    splitTeamData,
+                    page,
+                    sortType,
+                    i.user.id,
+                ),
                 components: [Button.teamSelect(splitTeamData, page), Button.moveVoiceChannel()],
             });
         } else if (interaction.isButton()) {
@@ -66,7 +71,9 @@ export async function handleValoTeamCommand(i: ChatInputCommandInteraction) {
             const sendMessage = await interaction.followUp({ embeds: [statusEmbed] });
             await moveTeamsToVoiceChannels(interaction, splitTeamData[page]!, uniqueId);
             sendMessage.edit({
-                embeds: [statusEmbed.setTitle('VCの移動が正常に完了しました').setColor(Colors.Green)],
+                embeds: [
+                    statusEmbed.setTitle('VCの移動が正常に完了しました').setColor(Colors.Green),
+                ],
             });
         }
     });
@@ -105,14 +112,19 @@ async function updateOldUserData(valoTeamData: ValoTeamUserData[]): Promise<void
     // 1時間以上前のデータを持つユーザーのみ抽出
     const targets = valoTeamData.filter(
         (user) =>
-            user.riotData && user.timestamp && diffFromNow(user.timestamp, DB_UPDATE_TIME_UNIT) >= DB_UPDATE_INTERVAL,
+            user.riotData &&
+            user.timestamp &&
+            diffFromNow(user.timestamp, DB_UPDATE_TIME_UNIT) >= DB_UPDATE_INTERVAL,
     );
 
     // 並列でAPIリクエスト＆DB更新
     await Promise.all(
         targets.map(async (user) => {
             try {
-                const newRiotData = await apiGetUserRankData(user.riotData!.name, user.riotData!.tag);
+                const newRiotData = await apiGetUserRankData(
+                    user.riotData!.name,
+                    user.riotData!.tag,
+                );
                 const newTimestamp = generateTimeStamp();
                 // DB更新
                 await insertUserRankToDB({
@@ -187,7 +199,10 @@ function splitBalancedTeams(valoTeamData: ValoTeamUserData[], sortType: string) 
 
     tryAllCombinations(0, 0, 0);
     results.sort((a, b) => a.diff - b.diff);
-    const prioritized = [...results.filter((r) => r.diff <= 3), ...results.filter((r) => r.diff > 3)];
+    const prioritized = [
+        ...results.filter((r) => r.diff <= 3),
+        ...results.filter((r) => r.diff > 3),
+    ];
 
     return prioritized.slice(0, 25).map((r) => ({
         teamA: r.teamA,
@@ -215,15 +230,19 @@ async function generateVoiceChannel(i: ButtonInteraction, id: string) {
     console.log('Defender VC ID:', defenderChannel?.id);
 }
 
-async function moveTeamsToVoiceChannels(i: ButtonInteraction, splitData: ValoTeamSplitData, id: string) {
+async function moveTeamsToVoiceChannels(
+    i: ButtonInteraction,
+    splitData: ValoTeamSplitData,
+    id: string,
+) {
     //VCを取得（idから生成したVC名で検索）
     const guild = i.guild;
-    const attackerVC = guild?.channels.cache.find((ch) => ch.type === 2 && ch.name === `Attacker(自動生成)${id}`) as
-        | VoiceChannel
-        | undefined;
-    const defenderVC = guild?.channels.cache.find((ch) => ch.type === 2 && ch.name === `Defender(自動生成)${id}`) as
-        | VoiceChannel
-        | undefined;
+    const attackerVC = guild?.channels.cache.find(
+        (ch) => ch.type === 2 && ch.name === `Attacker(自動生成)${id}`,
+    ) as VoiceChannel | undefined;
+    const defenderVC = guild?.channels.cache.find(
+        (ch) => ch.type === 2 && ch.name === `Defender(自動生成)${id}`,
+    ) as VoiceChannel | undefined;
     if (!attackerVC || !defenderVC) {
         await i.followUp({ content: 'VCが見つかりませんでした', ephemeral: true });
         return;

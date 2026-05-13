@@ -9,8 +9,8 @@ import {
     type ChatInputCommandInteraction,
     type GuildMember,
 } from 'discord.js';
-import { dayjs, generateTimeStamp } from './common/uitls.js';
-import { apiGetUserRankData } from '../../api/api.js';
+import { dayjs, generateTimeStamp } from './common/utils.js';
+import { apiGetUserRankData } from '../../api/henrik-api.js';
 import { valoRankIcon } from '../../utils/icon.js';
 import { ApiRequestError, MissingApiKeyError, UserNotFoundError } from '../../api/errors.js';
 import { deleteUserRankFromDB, getUserRankFromDB, insertUserRankToDB } from '../../database/db.js';
@@ -42,7 +42,9 @@ export async function handleValoRankCommand(i: ChatInputCommandInteraction) {
     } else if (dbUserData) {
         //登録されているとき
         await i.deferReply();
-        const lastUpdated = dayjs(dbUserData.timestamp, 'YYYY-MM-DD HH:mm:ss').tz(DEFAULT_TIME_ZONE);
+        const lastUpdated = dayjs(dbUserData.timestamp, 'YYYY-MM-DD HH:mm:ss').tz(
+            DEFAULT_TIME_ZONE,
+        );
         const hoursDiff = dayjs().diff(lastUpdated, DB_UPDATE_TIME_UNIT);
         try {
             await ifUserDataUpdate(hoursDiff, dbUserData);
@@ -59,8 +61,11 @@ export async function handleValoRankCommand(i: ChatInputCommandInteraction) {
     } else {
         //登録されていないとき
         await i.showModal(Modal.inputRiotId(discordData));
-        const filter = (modal: ModalSubmitInteraction) => modal.customId === riotIdModalId + discordData.id;
-        const modalInteraction = await i.awaitModalSubmit({ filter, time: MODAL_TIMEOUT_MS }).catch(() => null);
+        const filter = (modal: ModalSubmitInteraction) =>
+            modal.customId === riotIdModalId + discordData.id;
+        const modalInteraction = await i
+            .awaitModalSubmit({ filter, time: MODAL_TIMEOUT_MS })
+            .catch(() => null);
         if (!modalInteraction) return;
         await modalInteraction.deferReply();
         const { name, tag } = getModalInputValue(modalInteraction, discordData.id);
@@ -93,7 +98,10 @@ function getDiscordUserData(i: ChatInputCommandInteraction): DiscordUserData {
     };
 }
 
-async function ifUserDataUpdate(hoursDiff: number, userData: DBUserRankData): Promise<DBUserRankData> {
+async function ifUserDataUpdate(
+    hoursDiff: number,
+    userData: DBUserRankData,
+): Promise<DBUserRankData> {
     //タイムスタンプが1時間以内なら何も更新しない
     if (hoursDiff < DB_UPDATE_INTERVAL) return userData;
     //タイムスタンプが一時間を超えている場合は更新する
@@ -164,7 +172,9 @@ class Embed {
 
 class Modal {
     static inputRiotId(discordData: DiscordUserData) {
-        const modal = new ModalBuilder().setCustomId(riotIdModalId + discordData.id).setTitle('VALORANTランク登録');
+        const modal = new ModalBuilder()
+            .setCustomId(riotIdModalId + discordData.id)
+            .setTitle('VALORANTランク登録');
         const name = new TextInputBuilder()
             .setCustomId(nameInputModalId + discordData.id)
             .setStyle(TextInputStyle.Short)
@@ -181,8 +191,12 @@ class Modal {
             .setMaxLength(5);
 
         modal.addLabelComponents(
-            new LabelBuilder().setLabel('ゲーム名を入力してください(Taro#1234の場合Taro)').setTextInputComponent(name),
-            new LabelBuilder().setLabel('タグラインを入力してください(Taro#1234の場合1234)').setTextInputComponent(tag),
+            new LabelBuilder()
+                .setLabel('ゲーム名を入力してください(Taro#1234の場合Taro)')
+                .setTextInputComponent(name),
+            new LabelBuilder()
+                .setLabel('タグラインを入力してください(Taro#1234の場合1234)')
+                .setTextInputComponent(tag),
         );
         return modal;
     }

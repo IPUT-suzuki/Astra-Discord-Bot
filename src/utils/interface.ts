@@ -41,3 +41,11 @@ export interface UserRankRow {
     maxRank: string;
     timeStamp: string;
 }
+
+export interface ValoMapData {
+    name: string;
+    image: {
+        footer: string;
+        displayIcon: string;
+    };
+}
