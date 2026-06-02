@@ -1,28 +1,71 @@
 import axios from 'axios';
-import { ApiRequestError, MissingApiKeyError, UserNotFoundError } from './errors.js';
+import { henrikApiErrorConsole, MissingApiKeyError, UserNotFoundError } from './errors.js';
 import { API_TIMEOUT_MS, REQUEST_PLATFORMS, REQUEST_REGION } from '../utils/config.js';
 import type { RiotUserData } from '../utils/interface.js';
+import { Log } from '../utils/log.js';
+
+const apiKey = process.env.HENRIKDEV_API_KEY;
 
 export async function apiGetUserRankData(name: string, tag: string): Promise<RiotUserData> {
-    const apiKey = process.env.HENRIKDEV_API_KEY;
     if (!apiKey) {
         throw new MissingApiKeyError();
     }
     try {
+        Log.info('try api request...');
+        Log.info('target', { name, tag });
         const res = await axios.get(getMmrUrl(name, tag), getRequestConfig(apiKey));
-        return formatMmrResponse(res);
+        const formatData = formatMmrResponse(res);
+        Log.debug('response data', formatData);
+        Log.success('success api request');
+        return formatData;
     } catch (error) {
         if (!axios.isAxiosError(error)) {
+            // axios以外の想定外エラーはそのまま再スロー
+            Log.error('axios error');
             throw error;
         }
         const status = error.response?.status;
-        if (status !== 404) throw new ApiRequestError();
-        try {
-            await axios.get(getAccountUrl(name, tag), getRequestConfig(apiKey));
-            return formatNoMmrResponse(name, tag);
-        } catch (e) {
-            throw new UserNotFoundError();
+        if (status === 404) {
+            //accountチェック
+            if (status === 404) {
+                if (await hasAccount(name, tag)) return formatNoMmrResponse(name, tag);
+                UserNotFoundError.console(name, tag, status);
+                throw new UserNotFoundError(`${name}#${tag} not found`, 404);
+            }
         }
+        if (status) {
+            const apiError = henrikApiErrorConsole(status, name, tag);
+            if (apiError) {
+                throw apiError;
+            }
+        }
+        throw error;
+    }
+}
+
+async function hasAccount(name: string, tag: string) {
+    try {
+        Log.info('search account...');
+        Log.info('target', { name, tag });
+        await axios.get(getAccountUrl(name, tag), getRequestConfig(apiKey as string));
+        return true;
+    } catch (error) {
+        if (!axios.isAxiosError(error)) {
+            Log.error('axios error');
+            throw error;
+        }
+        const status = error.response?.status;
+        if (status === 404) {
+            return false;
+        }
+        Log.error('account check failed');
+        if (status) {
+            const apiError = henrikApiErrorConsole(status, name, tag);
+            if (apiError) {
+                throw apiError;
+            }
+        }
+        throw error;
     }
 }
 
