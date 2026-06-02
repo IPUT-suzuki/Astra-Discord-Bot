@@ -11,12 +11,12 @@ export async function apiGetUserRankData(name: string, tag: string): Promise<Rio
         throw new MissingApiKeyError();
     }
     try {
-        Log.info('try api request...');
+        Log.info('checking mmr data existence...');
         Log.info('target', { name, tag });
         const res = await axios.get(getMmrUrl(name, tag), getRequestConfig(apiKey));
         const formatData = formatMmrResponse(res);
         Log.debug('response data', formatData);
-        Log.success('success api request');
+        Log.success('mmr data found');
         return formatData;
     } catch (error) {
         if (!axios.isAxiosError(error)) {
@@ -28,6 +28,8 @@ export async function apiGetUserRankData(name: string, tag: string): Promise<Rio
         if (status === 404) {
             //accountチェック
             if (status === 404) {
+                Log.warn('mmr data not found');
+                Log.info('checking account existence...');
                 if (await hasAccount(name, tag)) return formatNoMmrResponse(name, tag);
                 UserNotFoundError.console(name, tag, status);
                 throw new UserNotFoundError(`${name}#${tag} not found`, 404);
@@ -45,9 +47,9 @@ export async function apiGetUserRankData(name: string, tag: string): Promise<Rio
 
 async function hasAccount(name: string, tag: string) {
     try {
-        Log.info('search account...');
-        Log.info('target', { name, tag });
         await axios.get(getAccountUrl(name, tag), getRequestConfig(apiKey as string));
+        Log.success('account exists');
+
         return true;
     } catch (error) {
         if (!axios.isAxiosError(error)) {
@@ -56,6 +58,7 @@ async function hasAccount(name: string, tag: string) {
         }
         const status = error.response?.status;
         if (status === 404) {
+            Log.warn('account not found');
             return false;
         }
         Log.error('account check failed');
