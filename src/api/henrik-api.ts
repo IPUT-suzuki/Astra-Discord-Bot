@@ -1,5 +1,11 @@
 import axios from 'axios';
-import { henrikApiErrorConsole, MissingApiKeyError, UserNotFoundError } from './errors.js';
+import {
+    henrikApiErrorConsole,
+    isAxiosTimeoutError,
+    MissingApiKeyError,
+    RequestTimeoutError,
+    UserNotFoundError,
+} from './errors.js';
 import { API_TIMEOUT_MS, REQUEST_PLATFORMS, REQUEST_REGION } from '../utils/config.js';
 import type { RiotUserData } from '../utils/interface.js';
 import { Log } from '../utils/log.js';
@@ -26,6 +32,11 @@ export async function apiGetUserRankData(name: string, tag: string): Promise<Rio
         if (!axios.isAxiosError(error)) {
             Log.error('Unexpected error occurred while fetching rank data', { target: target, error: error });
             throw error;
+        }
+
+        if (isAxiosTimeoutError(error)) {
+            RequestTimeoutError.console(408);
+            throw new RequestTimeoutError('Request timeout', 408);
         }
 
         const status = error.response?.status;

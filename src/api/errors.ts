@@ -1,4 +1,5 @@
 import { Colors, EmbedBuilder } from 'discord.js';
+import axios from 'axios';
 import { Log } from '../utils/log.js';
 
 // base error for HenrikDev API errors — keeps logging & common fields
@@ -76,7 +77,7 @@ class ForbiddenError extends HenrikApiError {
     }
 }
 
-class RequestTimeoutError extends HenrikApiError {
+export class RequestTimeoutError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service request timed out', {
             service: 'rank-service',
@@ -179,6 +180,11 @@ export class MissingApiKeyError extends Error {
     }
 }
 
+export function isAxiosTimeoutError(error: unknown) {
+    if (!axios.isAxiosError(error)) return false;
+    return error.code === 'ECONNABORTED' || error.message.includes('timeout');
+}
+
 export function henrikApiErrorConsole(status: number, name: string, tag: string) {
     switch (status) {
         case 400:
@@ -217,6 +223,10 @@ export function henrikApiErrorConsole(status: number, name: string, tag: string)
 }
 
 export function henrikApiErrorEmbed(error: any, name: string, tag: string) {
+    if (isAxiosTimeoutError(error)) {
+        return RequestTimeoutError.embed();
+    }
+
     const status: number | undefined =
         error.status ?? (typeof error === 'number' ? error : undefined);
 

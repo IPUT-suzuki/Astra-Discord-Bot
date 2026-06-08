@@ -57,8 +57,8 @@ export async function insertUserRankToDB(data: DBUserRankData) {
             `,
             [
                 data.discordData.id,
-                '5645456',
-                'aoia',
+                data.riotData.name,
+                data.riotData.tag,
                 data.riotData.nowRank,
                 data.riotData.nowRR,
                 data.riotData.maxRank,

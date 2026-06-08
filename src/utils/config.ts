@@ -9,7 +9,7 @@ export const DB_UPDATE_INTERVAL = 1; // DB更新の基準時間 単位はDB_UPDA
 // API設定
 export const REQUEST_REGION = 'ap'; // APIでどの地域のデータを取得するか
 export const REQUEST_PLATFORMS = 'pc';
-export const API_TIMEOUT_MS = 1000 * 4; // 4秒間
+export const API_TIMEOUT_MS = 1000 * 8; // APIリクエストのタイムアウト時間
 
 // VALO TEAM コマンド関連設定
 export const VALO_TEAM_COMMAND_OPTION = 'option';
