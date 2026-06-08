@@ -1,6 +1,7 @@
 // src/utils/log.ts
 import dayjs from 'dayjs';
 import chalk from 'chalk';
+import { DEBUG_MODE } from './config.js';
 
 type LogLevel = 'info' | 'success' | 'warn' | 'error' | 'debug';
 
@@ -49,7 +50,9 @@ export class Log {
         }
 
         if (level === 'debug') {
-            console.debug(prefix, message, ...args);
+            if (DEBUG_MODE) {
+                console.debug(prefix, message, ...args);
+            }
             return;
         }
 
