@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
 import type { DBUserRankData, UserRankRow } from '../utils/interface.js';
+import { Log } from '../utils/log.js';
 
 const pool = mysql.createPool({
     host: 'localhost',
@@ -26,16 +27,23 @@ export async function initTablesInDB() {
     `;
     const conn = await pool.getConnection();
     try {
+        Log.info('Starting user rank table initialization');
         await conn.query(createUserRank);
+        Log.success('Completed user rank table initialization');
+    } catch (error) {
+        Log.error('Failed to initialize user rank table', error);
+        throw error;
     } finally {
         conn.release();
     }
 }
-
+//riotName = VALUES(riotName),
+//riotTag = VALUES(riotTag),
 //ランクとかチーム分けとかそれ関連
 export async function insertUserRankToDB(data: DBUserRankData) {
     const conn = await pool.getConnection();
     try {
+        Log.info('Starting user rank data save', { userId: data.discordData.id });
         await conn.query(
             `INSERT INTO userrank (userid, riotName, riotTag, nowRank, nowRR, maxRank, timeStamp)
              VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -49,14 +57,21 @@ export async function insertUserRankToDB(data: DBUserRankData) {
             `,
             [
                 data.discordData.id,
-                data.riotData.name,
-                data.riotData.tag,
+                '5645456',
+                'aoia',
                 data.riotData.nowRank,
                 data.riotData.nowRR,
                 data.riotData.maxRank,
                 data.timestamp,
             ],
         );
+        Log.success('Completed user rank data save', { userId: data.discordData.id });
+    } catch (error) {
+        Log.error('Failed to save user rank data', {
+            userId: data.discordData.id,
+            error: error,
+        });
+        throw error;
     } finally {
         conn.release();
     }
@@ -64,37 +79,30 @@ export async function insertUserRankToDB(data: DBUserRankData) {
 
 export async function deleteUserRankFromDB(userid: string) {
     const conn = await pool.getConnection();
-    await conn.query('DELETE FROM userrank WHERE userid = ?', [userid]);
-    conn.release();
+    try {
+        Log.info('Starting user rank data deletion', { userId: userid });
+        await conn.query('DELETE FROM userrank WHERE userid = ?', [userid]);
+        Log.success('Completed user rank data deletion', { userId: userid });
+    } catch (error) {
+        Log.error('Failed to delete user rank data', { userId: userid, error: error });
+        throw error;
+    } finally {
+        conn.release();
+    }
 }
 
 export async function getUserRankFromDB(userid: string) {
     const conn = await pool.getConnection();
-    const [rows] = await conn.query('SELECT * FROM userrank WHERE userid = ?', [userid]);
-    const row = (rows as UserRankRow[])[0];
-    conn.release();
-    if (!row) return null;
-    return {
-        discordData: { id: row.userid },
-        riotData: {
-            name: row.riotName,
-            tag: row.riotTag,
-            nowRank: row.nowRank,
-            nowRR: row.nowRR,
-            maxRank: row.maxRank,
-        },
-        timestamp: row.timeStamp ?? '',
-    };
-}
-
-//summonコマンド関連
-export async function getMemberRankFromDB(userIds: string[]) {
-    const conn = await pool.getConnection();
-    const [rows] = await conn.query('SELECT * FROM userrank WHERE userid IN (?)', [userIds]);
-    conn.release();
-    const result: Record<string, any> = {};
-    for (const row of rows as UserRankRow[]) {
-        result[row.userid] = {
+    try {
+        Log.info('Starting user rank data fetch', { userId: userid });
+        const [rows] = await conn.query('SELECT * FROM userrank WHERE userid = ?', [userid]);
+        const row = (rows as UserRankRow[])[0];
+        Log.success('Completed user rank data fetch', {
+            userId: userid,
+            found: Boolean(row),
+        });
+        if (!row) return null;
+        return {
             discordData: { id: row.userid },
             riotData: {
                 name: row.riotName,
@@ -105,6 +113,46 @@ export async function getMemberRankFromDB(userIds: string[]) {
             },
             timestamp: row.timeStamp ?? '',
         };
+    } catch (error) {
+        Log.error('Failed to fetch user rank data', { userId: userid, error: error });
+        throw error;
+    } finally {
+        conn.release();
     }
-    return result;
+}
+
+//summonコマンド関連
+export async function getMemberRankFromDB(userIds: string[]) {
+    const conn = await pool.getConnection();
+    try {
+        Log.info('Starting member rank data fetch', { requestedCount: userIds.length });
+        const [rows] = await conn.query('SELECT * FROM userrank WHERE userid IN (?)', [userIds]);
+        const result: Record<string, DBUserRankData> = {};
+        for (const row of rows as UserRankRow[]) {
+            result[row.userid] = {
+                discordData: { id: row.userid },
+                riotData: {
+                    name: row.riotName,
+                    tag: row.riotTag,
+                    nowRank: row.nowRank,
+                    nowRR: row.nowRR,
+                    maxRank: row.maxRank,
+                },
+                timestamp: row.timeStamp ?? '',
+            };
+        }
+        Log.success('Completed member rank data fetch', {
+            requestedCount: userIds.length,
+            foundCount: Object.keys(result).length,
+        });
+        return result;
+    } catch (error) {
+        Log.error('Failed to fetch member rank data', {
+            requestedCount: userIds.length,
+            error: error,
+        });
+        throw error;
+    } finally {
+        conn.release();
+    }
 }

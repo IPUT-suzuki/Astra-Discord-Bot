@@ -1,16 +1,17 @@
 // main file
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
 import { Client, Events, GatewayIntentBits, type Interaction } from 'discord.js';
 import { handleValoRankCommand } from './commands/handlers/rank.js';
 import { handleValoTeamCommand } from './commands/handlers/team.js';
 import { handleVcSummonCommand } from './commands/handlers/vc-summon.js';
-import { registerCommands } from './commands/register.js';
 import { initTablesInDB } from './database/db.js';
 import { handleValoMapCommand } from './commands/handlers/map.js';
+import { Log } from './utils/log.js';
 
 const token = process.env.TOKEN;
 if (!token) {
-    console.error('Token is not set. Please set TOKEN in your .env file.');
+    Log.error('TOKEN is missing; startup aborted');
     process.exit(1);
 }
 const client = new Client({
@@ -23,60 +24,95 @@ const client = new Client({
 });
 
 client.once(Events.ClientReady, (client) => {
-    console.log('Bot online : ', client.user.tag);
+    Log.success('Bot is ready', { bot: client.user.tag });
 });
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     if (!interaction.isChatInputCommand()) return;
-    try {
-        if (interaction.commandName === 'valo') {
-            if (interaction.options.getSubcommand() === 'rank') {
-                await handleValoRankCommand(interaction);
-            } else if (interaction.options.getSubcommand() === 'map') {
-                await handleValoMapCommand(interaction);
-            } else if (interaction.options.getSubcommand() === 'team') {
-                await handleValoTeamCommand(interaction);
-            } else if (interaction.options.getSubcommand() === 'vc-summon') {
-                await handleVcSummonCommand(interaction);
-            }
-        }
-    } catch (error) {
-        console.error('Command error : ', error);
 
-        if (interaction.deferred || interaction.replied) {
-            await interaction.editReply('Command failed.');
-        } else {
-            await interaction.reply({
-                content: 'Command failed.',
-                ephemeral: true,
-            });
-        }
-    }
+    const commandName = interaction.commandName;
+    const commandSubName = interaction.options.getSubcommand();
+    const traceId = commandName + '-' + commandSubName + '-' + randomUUID().slice(0, 6);
+
+    await Log.withContext(
+        { traceId },
+        async () => {
+            try {
+                Log.info('Starting command handling');
+                Log.debug('Captured command context', {
+                    userName: interaction.user.globalName,
+                    userId: interaction.user.id,
+                    serverName: interaction.guild?.name,
+                    serverId: interaction.guild?.id,
+                });
+                if (commandName === 'valo') {
+                    if (commandSubName === 'rank') {
+                        await handleValoRankCommand(interaction);
+                    } else if (commandSubName === 'map') {
+                        await handleValoMapCommand(interaction);
+                    } else if (commandSubName === 'team') {
+                        await handleValoTeamCommand(interaction);
+                    } else if (commandSubName === 'vc-summon') {
+                        await handleVcSummonCommand(interaction);
+                    }
+                }
+                if (Log.hasError()) {
+                    Log.warn('Completed command handling with logged errors');
+                } else {
+                    Log.success('Completed command handling');
+                }
+            } catch (error) {
+                Log.error('Command handling failed', error);
+
+                try {
+                    if (interaction.deferred || interaction.replied) {
+                        await interaction.editReply('Command failed.');
+                    } else {
+                        await interaction.reply({
+                            content: 'Command failed.',
+                            ephemeral: true,
+                        });
+                    }
+                    Log.success('Sent command failure response');
+                } catch (replyError) {
+                    Log.error('Failed to send command failure response', replyError);
+                }
+            }
+        },
+    );
 });
 
-client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-    // チャンネルから誰かが抜けた場合のみ判定
+client.on(Events.VoiceStateUpdate, async (oldState) => {
     const channel = oldState.channel;
     if (
         channel &&
-        channel.type === 2 && // VoiceChannel
+        channel.type === 2 &&
         channel.members.size === 0 &&
-        (channel.name.startsWith('Attacker(自動生成)') ||
-            channel.name.startsWith('Defender(自動生成)'))
+        (channel.name.startsWith('Attacker(自動生成)') || channel.name.startsWith('Defender(自動生成)'))
     ) {
         try {
-            await channel.delete('自動生成VCの自動削除');
-            console.log(`Deleted empty auto-generated VC: ${channel.name}`);
-        } catch (e) {
-            console.error('VC自動削除エラー:', e);
+            Log.info('Starting empty auto voice channel deletion', {
+                channelId: channel.id,
+                channelName: channel.name,
+            });
+            await channel.delete('自動生成ボイスチャンネルの自動削除');
+            Log.success('Completed empty auto voice channel deletion', {
+                channelId: channel.id,
+                channelName: channel.name,
+            });
+        } catch (error) {
+            Log.error('Failed to delete empty auto voice channel', error);
         }
     }
 });
 
 client.on(Events.Error, (error) => {
-    console.error('Discord client error:', error);
+    Log.error('Discord client error occurred', error);
 });
 
+Log.info('Starting database initialization');
 await initTablesInDB();
+Log.success('Completed database initialization');
 
+Log.info('Starting Discord login');
 await client.login(token);

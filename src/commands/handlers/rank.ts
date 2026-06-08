@@ -9,21 +9,21 @@ import {
     type ChatInputCommandInteraction,
     type GuildMember,
 } from 'discord.js';
-import { dayjs, generateTimeStamp } from './common/utils.js';
+import { diffFromNow, generateTimeStamp } from './common/utils.js';
 import { apiGetUserRankData } from '../../api/henrik-api.js';
 import { valoRankIcon } from '../../utils/icon.js';
-import { ApiRequestError, MissingApiKeyError, UserNotFoundError } from '../../api/errors.js';
+import { henrikApiErrorEmbed, UserNotFoundError } from '../../api/errors.js';
 import { deleteUserRankFromDB, getUserRankFromDB, insertUserRankToDB } from '../../database/db.js';
 import type { DBUserRankData, DiscordUserData, RiotUserData } from '../../utils/interface.js';
 import {
     DB_UPDATE_INTERVAL,
     DB_UPDATE_TIME_UNIT,
-    DEFAULT_TIME_ZONE,
     MODAL_TIMEOUT_MS,
     VALO_RIOT_ID_MODAL_ID,
     VALO_RIOT_ID_NAME_INPUT_ID,
     VALO_RIOT_ID_TAG_INPUT_ID,
 } from '../../utils/config.js';
+import { Log } from '../../utils/log.js';
 
 const riotIdModalId = VALO_RIOT_ID_MODAL_ID;
 const nameInputModalId = VALO_RIOT_ID_NAME_INPUT_ID;
@@ -31,63 +31,116 @@ const tagInputModalId = VALO_RIOT_ID_TAG_INPUT_ID;
 
 export async function handleValoRankCommand(i: ChatInputCommandInteraction) {
     const discordData: DiscordUserData = getDiscordUserData(i);
-    const dbUserData: DBUserRankData | null = await getUserRankFromDB(discordData.id);
+    const dbUserData: DBUserRankData | null = await getRegisteredRankData(discordData.id);
     const option = i.options.getBoolean('delete_option', false);
-    //delete_optionじゃなくてもいいかも？
+
     if (option === true && dbUserData) {
-        //削除が有効かつ登録されている場合
-        await deleteUserRankFromDB(discordData.id);
-        await i.reply({ embeds: [Embed.successDelete(dbUserData, discordData)] });
+        await deleteLinkedRank(i, dbUserData, discordData);
         return;
-    } else if (dbUserData) {
-        //登録されているとき
-        await i.deferReply();
-        const lastUpdated = dayjs(dbUserData.timestamp, 'YYYY-MM-DD HH:mm:ss').tz(
-            DEFAULT_TIME_ZONE,
-        );
-        const hoursDiff = dayjs().diff(lastUpdated, DB_UPDATE_TIME_UNIT);
-        try {
-            await ifUserDataUpdate(hoursDiff, dbUserData);
-        } catch (error) {
-            if (error instanceof UserNotFoundError) {
-                const [name, tag] = [dbUserData.riotData.name, dbUserData.riotData.tag];
-                i.editReply({ embeds: [UserNotFoundError.embed(name, tag)] });
-            } else if (error instanceof ApiRequestError || error instanceof MissingApiKeyError) {
-                i.editReply({ embeds: [ApiRequestError.embed()] });
-            }
-            return;
-        }
-        await i.editReply({ embeds: [Embed.userDataInfo(dbUserData, discordData)] });
-    } else {
-        //登録されていないとき
-        await i.showModal(Modal.inputRiotId(discordData));
-        const filter = (modal: ModalSubmitInteraction) =>
-            modal.customId === riotIdModalId + discordData.id;
-        const modalInteraction = await i
-            .awaitModalSubmit({ filter, time: MODAL_TIMEOUT_MS })
-            .catch(() => null);
-        if (!modalInteraction) return;
-        await modalInteraction.deferReply();
-        const { name, tag } = getModalInputValue(modalInteraction, discordData.id);
-        try {
-            const riotData: RiotUserData = await apiGetUserRankData(name, tag);
-            const newUserData: DBUserRankData = formatUserDataForDb(discordData.id, riotData);
-            await insertUserRankToDB(newUserData);
-            await modalInteraction.editReply({
-                embeds: [Embed.userDataInfo(newUserData, discordData)],
-            });
-        } catch (error) {
-            if (error instanceof UserNotFoundError) {
-                await modalInteraction.editReply({ embeds: [UserNotFoundError.embed(name, tag)] });
-            } else if (error instanceof ApiRequestError) {
-                await modalInteraction.editReply({ embeds: [ApiRequestError.embed()] });
-            } else {
-                console.log(error);
-            }
-            return;
-        }
     }
-    return;
+    if (dbUserData) {
+        await showRegisteredRank(i, dbUserData, discordData);
+        return;
+    }
+    await showRankRegistrationModal(i, discordData);
+}
+
+async function getRegisteredRankData(userId: string) {
+    Log.info('Checking rank registration status', { userId: userId });
+    const dbUserData: DBUserRankData | null = await getUserRankFromDB(userId);
+    Log.info('Checked rank registration status', {
+        userId: userId,
+        registered: Boolean(dbUserData),
+    });
+    return dbUserData;
+}
+
+async function deleteLinkedRank(
+    i: ChatInputCommandInteraction,
+    dbUserData: DBUserRankData,
+    discordData: DiscordUserData,
+) {
+    Log.info('Starting user rank unlink', { userId: discordData.id });
+    await deleteUserRankFromDB(discordData.id);
+    Log.success('Completed user rank unlink', { userId: discordData.id });
+    await i.reply({ embeds: [Embed.successDelete(dbUserData, discordData)] });
+    Log.success('Sent rank unlink response');
+}
+
+async function showRegisteredRank(
+    i: ChatInputCommandInteraction,
+    dbUserData: DBUserRankData,
+    discordData: DiscordUserData,
+) {
+    Log.info('Starting registered rank display', { userId: discordData.id });
+    await i.deferReply();
+    try {
+        const hoursDiff = diffFromNow(dbUserData.timestamp, DB_UPDATE_TIME_UNIT);
+        await ifUserDataUpdate(hoursDiff, dbUserData);
+    } catch (error) {
+        await replyRankUpdateError(i, dbUserData, error);
+        return;
+    }
+    await i.editReply({ embeds: [Embed.userDataInfo(dbUserData, discordData)] });
+    Log.success('Sent registered rank response', { userId: discordData.id });
+}
+
+async function replyRankUpdateError(
+    i: ChatInputCommandInteraction,
+    dbUserData: DBUserRankData,
+    error: unknown,
+) {
+    const [name, tag] = [dbUserData.riotData.name, dbUserData.riotData.tag];
+    Log.error('Failed to update registered rank data', error);
+    if (error instanceof UserNotFoundError) {
+        await notifyRegisteredRiotIdNotFound(i, dbUserData);
+    }
+    const errorEmbed = henrikApiErrorEmbed(error, name, tag);
+    await i.editReply({ embeds: [errorEmbed] });
+}
+
+async function showRankRegistrationModal(
+    i: ChatInputCommandInteraction,
+    discordData: DiscordUserData,
+) {
+    Log.info('Showing rank registration modal', { userId: discordData.id });
+    await i.showModal(Modal.inputRiotId(discordData));
+    const modalInteraction = await awaitRankRegistrationModal(i, discordData.id);
+    if (!modalInteraction) return;
+    await registerRankFromModal(modalInteraction, discordData);
+}
+
+async function awaitRankRegistrationModal(i: ChatInputCommandInteraction, userId: string) {
+    Log.info('Waiting for rank registration modal submission', { userId: userId });
+    const filter = (modal: ModalSubmitInteraction) => modal.customId === riotIdModalId + userId;
+    const modalInteraction = await i
+        .awaitModalSubmit({ filter, time: MODAL_TIMEOUT_MS })
+        .catch(() => null);
+    if (!modalInteraction) {
+        Log.warn('Rank registration modal timed out');
+    }
+    return modalInteraction;
+}
+
+async function registerRankFromModal(i: ModalSubmitInteraction, discordData: DiscordUserData) {
+    Log.info('Starting rank registration modal handling');
+    await i.deferReply();
+    const { name, tag } = getModalInputValue(i, discordData.id);
+    try {
+        const riotData: RiotUserData = await apiGetUserRankData(name, tag);
+        const newUserData: DBUserRankData = formatUserDataForDb(discordData.id, riotData);
+        await insertUserRankToDB(newUserData);
+        await i.editReply({
+            embeds: [Embed.userDataInfo(newUserData, discordData)],
+        });
+        Log.success('Completed new rank registration and response', {
+            userId: discordData.id,
+        });
+    } catch (error) {
+        Log.error('Failed to register new rank data', error);
+        const errorEmbed = henrikApiErrorEmbed(error, name, tag);
+        await i.editReply({ embeds: [errorEmbed] });
+    }
 }
 
 function getDiscordUserData(i: ChatInputCommandInteraction): DiscordUserData {
@@ -102,16 +155,45 @@ async function ifUserDataUpdate(
     hoursDiff: number,
     userData: DBUserRankData,
 ): Promise<DBUserRankData> {
-    //タイムスタンプが1時間以内なら何も更新しない
-    if (hoursDiff < DB_UPDATE_INTERVAL) return userData;
-    //タイムスタンプが一時間を超えている場合は更新する
-    try {
-        userData.riotData = await apiGetUserRankData(userData.riotData.name, userData.riotData.tag);
-        userData.timestamp = generateTimeStamp();
-        await insertUserRankToDB(userData);
+    if (hoursDiff < DB_UPDATE_INTERVAL) {
+        Log.info('Using cached rank data because update interval has not elapsed', {
+            userId: userData.discordData.id,
+            elapsed: hoursDiff,
+        });
         return userData;
+    }
+
+    Log.info('Starting stale rank data update', {
+        userId: userData.discordData.id,
+        elapsed: hoursDiff,
+    });
+    userData.riotData = await apiGetUserRankData(userData.riotData.name, userData.riotData.tag);
+    userData.timestamp = generateTimeStamp();
+    await insertUserRankToDB(userData);
+    Log.success('Completed stale rank data update', {
+        userId: userData.discordData.id,
+    });
+    return userData;
+}
+
+async function notifyRegisteredRiotIdNotFound(
+    i: ChatInputCommandInteraction,
+    userData: DBUserRankData,
+) {
+    try {
+        Log.info('Sending registered Riot ID not found DM', {
+            userId: userData.discordData.id,
+            target: userData.riotData.name + '#' + userData.riotData.tag,
+        });
+        await i.user.send({ embeds: [Embed.registeredRiotIdNotFound(userData)] });
+        Log.success('Sent registered Riot ID not found DM', {
+            userId: userData.discordData.id,
+        });
     } catch (error) {
-        throw error;
+        Log.warn('Failed to send registered Riot ID not found DM', {
+            userId: userData.discordData.id,
+            error: error,
+        });
     }
 }
 
@@ -132,12 +214,20 @@ function formatUserDataForDb(id: string, riotData: RiotUserData): DBUserRankData
     };
 }
 
+function formatRiotId(riotData: RiotUserData) {
+    return riotData.name + '#' + riotData.tag;
+}
+
+function formatRankValue(rank: string) {
+    return valoRankIcon[rank] + rank;
+}
+
 class Embed {
     static userDataInfo(dbData: DBUserRankData, discordData: DiscordUserData) {
         const riotData: RiotUserData = dbData.riotData;
-        const riotId = riotData.name + '#' + riotData.tag;
-        const nowValue = valoRankIcon[riotData.nowRank] + riotData.nowRank;
-        const maxValue = valoRankIcon[riotData.maxRank] + riotData.maxRank;
+        const riotId = formatRiotId(riotData);
+        const nowValue = formatRankValue(riotData.nowRank);
+        const maxValue = formatRankValue(riotData.maxRank);
         return new EmbedBuilder()
             .setColor(Colors.Green)
             .setTitle(discordData.name + 'さんのランク情報')
@@ -153,9 +243,9 @@ class Embed {
 
     static successDelete(dbData: DBUserRankData, discordData: DiscordUserData) {
         const riotData: RiotUserData = dbData.riotData;
-        const riotId = riotData.name + '#' + riotData.tag;
-        const nowValue = valoRankIcon[riotData.nowRank] + riotData.nowRank;
-        const maxValue = valoRankIcon[riotData.maxRank] + riotData.maxRank;
+        const riotId = formatRiotId(riotData);
+        const nowValue = formatRankValue(riotData.nowRank);
+        const maxValue = formatRankValue(riotData.maxRank);
         return new EmbedBuilder()
             .setColor(Colors.Green)
             .setTitle(discordData.name + 'さんのアカウント連携を解除しました')
@@ -167,6 +257,29 @@ class Embed {
                 { name: '最高ランク', value: maxValue, inline: false },
             )
             .setThumbnail(discordData.icon);
+    }
+
+    static registeredRiotIdNotFound(dbData: DBUserRankData) {
+        const riotId = formatRiotId(dbData.riotData);
+        return new EmbedBuilder()
+            .setColor(Colors.Red)
+            .setTitle('登録済みRiot IDが見つかりません')
+            .setDescription(
+                '登録されているRiot IDが存在しないため、ランク情報を更新できませんでした。アカウント削除やRiot ID変更の可能性があります。',
+            )
+            .setFields(
+                { name: '登録中のRiot ID', value: riotId, inline: false },
+                {
+                    name: '対応方法',
+                    value: '/valo rank delete_option:true を実行し、連携を解除してから、現在のRiot IDで再登録してください。',
+                    inline: false,
+                },
+                {
+                    name: 'コピー用',
+                    value: '```\n/valo rank delete_option:true\n```',
+                    inline: false,
+                },
+            );
     }
 }
 

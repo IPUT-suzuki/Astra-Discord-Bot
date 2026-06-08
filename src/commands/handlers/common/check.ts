@@ -1,49 +1,77 @@
-import { Colors, EmbedBuilder, MessageFlags, type ChatInputCommandInteraction, type GuildMember } from 'discord.js';
+import {
+    Colors,
+    EmbedBuilder,
+    MessageFlags,
+    type ChatInputCommandInteraction,
+    type GuildMember,
+} from 'discord.js';
+import { Log } from '../../../utils/log.js';
+
 export class Check {
     static async isCommandChannel(i: ChatInputCommandInteraction) {
-        //DMでのコマンドを拒否
         const result = Boolean(i.guild);
-        const payload = Embed.commandUsedInDM();
-        if (!result) Check.errorSender(i, payload, false);
+        if (!result) {
+            Log.warn('Command rejected because it was used in a direct message');
+            await Check.errorSender(i, Embed.commandUsedInDM(), false);
+        }
         return result;
     }
 
     static async isUserVcState(i: ChatInputCommandInteraction) {
-        //VCに接続してない場合拒否
         const result = Boolean((i.member as GuildMember).voice.channel);
-        const payload = Embed.userNoConnectVC();
-        if (!result) Check.errorSender(i, payload, true);
+        if (!result) {
+            Log.warn('Command rejected because the user is not in a voice channel');
+            await Check.errorSender(i, Embed.userNoConnectVC(), true);
+        }
         return result;
     }
 
     static async underVcUser(i: ChatInputCommandInteraction, value: number) {
-        //規定の人数いない場合拒否
-        const result = ((i.member as GuildMember)?.voice?.channel?.members.size ?? 0) >= value;
-        const payload = Embed.vcUserUnderLimit(value);
-        if (!result) Check.errorSender(i, payload, true);
+        const memberCount = (i.member as GuildMember)?.voice?.channel?.members.size ?? 0;
+        const result = memberCount >= value;
+        if (!result) {
+            Log.warn('Command rejected because voice channel member count is below the minimum', {
+                memberCount,
+                minimum: value,
+            });
+            await Check.errorSender(i, Embed.vcUserUnderLimit(value), true);
+        }
         return result;
     }
 
     static async overVcUser(i: ChatInputCommandInteraction, value: number) {
-        //規定の人数を超えている場合エラー
-        const result = ((i.member as GuildMember)?.voice?.channel?.members.size ?? 0) <= value;
-        const payload = Embed.vcUserOverLimit(value);
-        if (!result) Check.errorSender(i, payload, true);
-        return result;
-    }
-    static async isValidUUID(i: ChatInputCommandInteraction, sessionId: string) {
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        const result = uuidRegex.test(sessionId);
-        const payload = Embed.isValidUUID();
-        if (!result) Check.errorSender(i, payload, true);
+        const memberCount = (i.member as GuildMember)?.voice?.channel?.members.size ?? 0;
+        const result = memberCount <= value;
+        if (!result) {
+            Log.warn('Command rejected because voice channel member count exceeds the maximum', {
+                memberCount,
+                maximum: value,
+            });
+            await Check.errorSender(i, Embed.vcUserOverLimit(value), true);
+        }
         return result;
     }
 
-    static async errorSender(i: ChatInputCommandInteraction, payload: EmbedBuilder, ephemeral: boolean) {
-        return await i.reply({
+    static async isValidUUID(i: ChatInputCommandInteraction, sessionId: string) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const result = uuidRegex.test(sessionId);
+        if (!result) {
+            Log.warn('Command rejected because the session ID format is invalid');
+            await Check.errorSender(i, Embed.isValidUUID(), true);
+        }
+        return result;
+    }
+
+    static async errorSender(
+        i: ChatInputCommandInteraction,
+        payload: EmbedBuilder,
+        ephemeral: boolean,
+    ) {
+        await i.reply({
             embeds: [payload],
             flags: ephemeral ? MessageFlags.Ephemeral : undefined,
         });
+        Log.success('Sent validation error response');
     }
 }
 

@@ -7,66 +7,69 @@ import { Log } from '../utils/log.js';
 const apiKey = process.env.HENRIKDEV_API_KEY;
 
 export async function apiGetUserRankData(name: string, tag: string): Promise<RiotUserData> {
+    const target = `${name}#${tag}`;
     if (!apiKey) {
+        Log.error('Rank service credential is missing');
         throw new MissingApiKeyError();
     }
+
     try {
-        Log.info('checking mmr data existence...');
-        Log.info('target', { name, tag });
+        Log.info('Starting rank service MMR fetch', { target: target });
         const res = await axios.get(getMmrUrl(name, tag), getRequestConfig(apiKey));
         const formatData = formatMmrResponse(res);
-        Log.debug('response data', formatData);
-        Log.success('mmr data found');
+        Log.success('Completed rank service MMR fetch', {
+            target,
+            status: res.status,
+        });
         return formatData;
     } catch (error) {
         if (!axios.isAxiosError(error)) {
-            // axios以外の想定外エラーはそのまま再スロー
-            Log.error('axios error');
+            Log.error('Unexpected error occurred while fetching rank data', { target: target, error: error });
             throw error;
         }
+
         const status = error.response?.status;
+        Log.warn('Rank service MMR fetch failed', { target: target, status: status });
         if (status === 404) {
-            //accountチェック
-            if (status === 404) {
-                Log.warn('mmr data not found');
-                Log.info('checking account existence...');
-                if (await hasAccount(name, tag)) return formatNoMmrResponse(name, tag);
-                UserNotFoundError.console(name, tag, status);
-                throw new UserNotFoundError(`${name}#${tag} not found`, 404);
+            Log.info('Starting account existence check because MMR data was not found', { target: target });
+            if (await hasAccount(name, tag)) {
+                Log.info('Creating unrated rank data', { target: target });
+                return formatNoMmrResponse(name, tag);
             }
+            UserNotFoundError.console(name, tag, status);
+            throw new UserNotFoundError(`${name}#${tag} not found`, 404);
         }
         if (status) {
             const apiError = henrikApiErrorConsole(status, name, tag);
-            if (apiError) {
-                throw apiError;
-            }
+            if (apiError) throw apiError;
         }
         throw error;
     }
 }
 
 async function hasAccount(name: string, tag: string) {
+    const target = `${name}#${tag}`;
     try {
-        await axios.get(getAccountUrl(name, tag), getRequestConfig(apiKey as string));
-        Log.success('account exists');
-
+        const res = await axios.get(getAccountUrl(name, tag), getRequestConfig(apiKey as string));
+        Log.success('Confirmed account existence with rank service', {
+            target,
+            status: res.status,
+        });
         return true;
     } catch (error) {
         if (!axios.isAxiosError(error)) {
-            Log.error('axios error');
+            Log.error('Unexpected error occurred while checking account existence', { target: target, error: error });
             throw error;
         }
         const status = error.response?.status;
         if (status === 404) {
-            Log.warn('account not found');
+            Log.warn('Target account was not found by rank service', { target: target, status: status });
             return false;
         }
-        Log.error('account check failed');
+        Log.error('Rank service account check failed', { target: target, status: status });
         if (status) {
             const apiError = henrikApiErrorConsole(status, name, tag);
-            if (apiError) {
-                throw apiError;
-            }
+            if (apiError) throw apiError;
         }
         throw error;
     }
@@ -85,17 +88,17 @@ function formatMmrResponse(raw: any): RiotUserData {
 
 function formatNoMmrResponse(name: string, tag: string): RiotUserData {
     return {
-        name: name,
-        tag: tag,
+        name,
+        tag,
         nowRank: 'Unrated',
         nowRR: '???',
         maxRank: 'Unrated',
     };
 }
 
-function getRequestConfig(apiKey: string) {
+function getRequestConfig(key: string) {
     return {
-        headers: { Authorization: apiKey },
+        headers: { Authorization: key },
         timeout: API_TIMEOUT_MS,
     };
 }

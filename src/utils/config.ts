@@ -1,8 +1,9 @@
+export const DEBUG_MODE = true;
 // タイムゾーン設定
 export const DEFAULT_TIME_ZONE = 'Asia/Tokyo';
 
 // データ更新関連の設定
-export const DB_UPDATE_TIME_UNIT = 'hours'; // DB更新の差分単位
+export const DB_UPDATE_TIME_UNIT = 'seconds'; // DB更新の差分単位
 export const DB_UPDATE_INTERVAL = 1; // DB更新の基準時間 単位はDB_UPDATE_TIME_UNITに従う
 
 // API設定

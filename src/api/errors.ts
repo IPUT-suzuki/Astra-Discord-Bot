@@ -20,9 +20,9 @@ export class UserNotFoundError extends HenrikApiError {
             .setDescription(name + '#' + tag + 'のアカウント情報が見つかりませんでした');
     }
     static console(name: string, tag: string, status: number) {
-        Log.error('UserNotFoundError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Target user was not found by rank service', {
+            service: 'rank-service',
+            status: status,
             target: `${name}#${tag}`,
         });
     }
@@ -30,9 +30,9 @@ export class UserNotFoundError extends HenrikApiError {
 
 class BadRequestError extends HenrikApiError {
     static console(status: number) {
-        Log.error('BadRequestError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service request is invalid', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
@@ -46,9 +46,9 @@ class BadRequestError extends HenrikApiError {
 
 class UnauthorizedError extends HenrikApiError {
     static console(status: number) {
-        Log.error('UnauthorizedError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service authorization failed', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
@@ -62,9 +62,9 @@ class UnauthorizedError extends HenrikApiError {
 
 class ForbiddenError extends HenrikApiError {
     static console(status: number) {
-        Log.error('ForbiddenError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service access was forbidden', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
@@ -78,9 +78,9 @@ class ForbiddenError extends HenrikApiError {
 
 class RequestTimeoutError extends HenrikApiError {
     static console(status: number) {
-        Log.error('RequestTimeoutError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service request timed out', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
@@ -94,9 +94,9 @@ class RequestTimeoutError extends HenrikApiError {
 
 class EndpointDeprecatedError extends HenrikApiError {
     static console(status: number) {
-        Log.error('EndpointDeprecatedError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service endpoint is deprecated', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
@@ -110,9 +110,9 @@ class EndpointDeprecatedError extends HenrikApiError {
 
 class RateLimitError extends HenrikApiError {
     static console(status: number) {
-        Log.error('RateLimitError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service rate limit was reached', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
@@ -126,9 +126,9 @@ class RateLimitError extends HenrikApiError {
 
 class ServerError extends HenrikApiError {
     static console(status: number) {
-        Log.error('ServerError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service server error occurred', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
@@ -142,25 +142,25 @@ class ServerError extends HenrikApiError {
 
 class NotImplementedError extends HenrikApiError {
     static console(status: number) {
-        Log.error('NotImplementedError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service does not support the requested feature', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
     static embed() {
         return new EmbedBuilder()
             .setColor(Colors.Red)
-            .setTitle('Not Implemented')
+            .setTitle('Not Implementted')
             .setDescription('要求された API バージョンはサポートされていません。');
     }
 }
 
 class ServiceUnavailableError extends HenrikApiError {
     static console(status: number) {
-        Log.error('ServiceUnavailableError', {
-            api: 'henrik-api',
-            status,
+        Log.error('Rank service is unavailable', {
+            service: 'rank-service',
+            status: status,
         });
     }
 
@@ -217,7 +217,8 @@ export function henrikApiErrorConsole(status: number, name: string, tag: string)
 }
 
 export function henrikApiErrorEmbed(error: any, name: string, tag: string) {
-    const status: number | undefined = error.status;
+    const status: number | undefined =
+        error.status ?? (typeof error === 'number' ? error : undefined);
 
     const handlers: Record<number, () => EmbedBuilder> = {
         400: () => BadRequestError.embed(),
@@ -234,5 +235,8 @@ export function henrikApiErrorEmbed(error: any, name: string, tag: string) {
 
     return status && handlers[status]
         ? handlers[status]()
-        : new EmbedBuilder().setColor(Colors.Red).setTitle('Error').setDescription('不明なエラーが発生しました。');
+        : new EmbedBuilder()
+              .setColor(Colors.Red)
+              .setTitle('Error')
+              .setDescription('不明なエラーが発生しました。');
 }
