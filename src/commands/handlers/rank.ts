@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
     Colors,
     EmbedBuilder,
@@ -103,16 +104,23 @@ async function showRankRegistrationModal(
     i: ChatInputCommandInteraction,
     discordData: DiscordUserData,
 ) {
-    Log.info('Showing rank registration modal', { userId: discordData.id });
-    await i.showModal(Modal.inputRiotId(discordData));
-    const modalInteraction = await awaitRankRegistrationModal(i, discordData.id);
+    const requestId = randomUUID().slice(0, 8);
+    Log.info('Showing rank registration modal', { userId: discordData.id, requestId });
+    await i.showModal(Modal.inputRiotId(discordData, requestId));
+    const modalInteraction = await awaitRankRegistrationModal(i, discordData.id, requestId);
     if (!modalInteraction) return;
-    await registerRankFromModal(modalInteraction, discordData);
+    await registerRankFromModal(modalInteraction, discordData, requestId);
 }
 
-async function awaitRankRegistrationModal(i: ChatInputCommandInteraction, userId: string) {
-    Log.info('Waiting for rank registration modal submission', { userId });
-    const filter = (modal: ModalSubmitInteraction) => modal.customId === riotIdModalId + userId;
+async function awaitRankRegistrationModal(
+    i: ChatInputCommandInteraction,
+    userId: string,
+    requestId: string,
+) {
+    Log.info('Waiting for rank registration modal submission', { userId, requestId });
+    const filter = (modal: ModalSubmitInteraction) =>
+        modal.user.id === userId &&
+        modal.customId === createModalComponentId(riotIdModalId, userId, requestId);
     const modalInteraction = await i
         .awaitModalSubmit({ filter, time: MODAL_TIMEOUT_MS })
         .catch(() => null);
@@ -122,10 +130,14 @@ async function awaitRankRegistrationModal(i: ChatInputCommandInteraction, userId
     return modalInteraction;
 }
 
-async function registerRankFromModal(i: ModalSubmitInteraction, discordData: DiscordUserData) {
+async function registerRankFromModal(
+    i: ModalSubmitInteraction,
+    discordData: DiscordUserData,
+    requestId: string,
+) {
     Log.info('Starting rank registration modal handling');
     await i.deferReply();
-    const { name, tag } = getModalInputValue(i, discordData.id);
+    const { name, tag } = getModalInputValue(i, discordData.id, requestId);
     try {
         const riotData: RiotUserData = await apiGetUserRankData(name, tag);
         const newUserData: DBUserRankData = formatUserDataForDb(discordData.id, riotData);
@@ -197,11 +209,15 @@ async function notifyRegisteredRiotIdNotFound(
     }
 }
 
-function getModalInputValue(i: ModalSubmitInteraction, userId: string) {
+function getModalInputValue(i: ModalSubmitInteraction, userId: string, requestId: string) {
     return {
-        name: i.fields.getTextInputValue(nameInputModalId + userId),
-        tag: i.fields.getTextInputValue(tagInputModalId + userId),
+        name: i.fields.getTextInputValue(createModalComponentId(nameInputModalId, userId, requestId)),
+        tag: i.fields.getTextInputValue(createModalComponentId(tagInputModalId, userId, requestId)),
     };
+}
+
+function createModalComponentId(prefix: string, userId: string, requestId: string) {
+    return prefix + userId + requestId;
 }
 
 function formatUserDataForDb(id: string, riotData: RiotUserData): DBUserRankData {
@@ -284,19 +300,19 @@ class Embed {
 }
 
 class Modal {
-    static inputRiotId(discordData: DiscordUserData) {
+    static inputRiotId(discordData: DiscordUserData, requestId: string) {
         const modal = new ModalBuilder()
-            .setCustomId(riotIdModalId + discordData.id)
+            .setCustomId(createModalComponentId(riotIdModalId, discordData.id, requestId))
             .setTitle('VALORANTランク登録');
         const name = new TextInputBuilder()
-            .setCustomId(nameInputModalId + discordData.id)
+            .setCustomId(createModalComponentId(nameInputModalId, discordData.id, requestId))
             .setStyle(TextInputStyle.Short)
             .setRequired(true)
             .setPlaceholder('ゲーム名を入力（例: Taro）')
             .setMinLength(3)
             .setMaxLength(16);
         const tag = new TextInputBuilder()
-            .setCustomId(tagInputModalId + discordData.id)
+            .setCustomId(createModalComponentId(tagInputModalId, discordData.id, requestId))
             .setStyle(TextInputStyle.Short)
             .setRequired(true)
             .setPlaceholder('タグラインを入力（例: 1234）')
