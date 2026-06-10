@@ -3,8 +3,10 @@ import {
     ButtonBuilder,
     ButtonInteraction,
     ButtonStyle,
+    ChannelType,
     ChatInputCommandInteraction,
     Colors,
+    ComponentType,
     EmbedBuilder,
     GuildChannel,
     StringSelectMenuInteraction,
@@ -19,7 +21,7 @@ import { getMemberRankFromDB, insertUserRankToDB } from '../../database/db.js';
 import { apiGetUserRankData } from '../../api/henrik-api.js';
 import { UserNotFoundError } from '../../api/errors.js';
 import { valoRankIcon } from '../../utils/icon.js';
-import type { ValoTeamSplitData, ValoTeamUserData } from '../../utils/interface.js';
+import type { DBUserRankData, ValoTeamSplitData, ValoTeamUserData } from '../../utils/interface.js';
 import { Log } from '../../utils/log.js';
 import {
     DB_UPDATE_INTERVAL,
@@ -29,13 +31,22 @@ import {
     VALO_VC_MIN_VALUE,
 } from '../../utils/config.js';
 
+type TeamMember = { id: string };
+type SplitCandidate = ValoTeamSplitData;
+type TeamSide = 'Attacker' | 'Defender';
+
 export async function handleValoTeamCommand(i: ChatInputCommandInteraction) {
     if (!(await prepareTeamSplitCommand(i))) return;
 
     const sortType = i.options.getString('sort_option', true);
-    Log.info('Fetching voice channel member rank data', { sortType: sortType });
+    const excludeOption = i.options.getBoolean('exclude_option') ?? false;
+    const userIDs = getVcMemberUserID(i);
+    const targetUserIDs = await selectTeamTargetUserIDs(i, userIDs, excludeOption);
+    if (targetUserIDs.length < 1) return;
 
-    const valoTeamData: ValoTeamUserData[] = await initValoTeamData(i);
+    Log.info('Fetching voice channel member rank data', { sortType });
+
+    const valoTeamData: ValoTeamUserData[] = await initValoTeamData(i, targetUserIDs);
     if (valoTeamData.length < 1) return;
 
     Log.info('Starting stale member rank update', { userCount: valoTeamData.length });
@@ -51,7 +62,9 @@ export async function handleValoTeamCommand(i: ChatInputCommandInteraction) {
         sortType,
     });
     const splitTeamData: ValoTeamSplitData[] = splitBalancedTeams(valoTeamData, sortType);
-    Log.success('Completed team split candidate generation', { candidateCount: splitTeamData.length });
+    Log.success('Completed team split candidate generation', {
+        candidateCount: splitTeamData.length,
+    });
     await sendSplitTeamResponse(i, valoTeamData, splitTeamData, sortType, 0);
     await collectTeamSplitComponents(i, valoTeamData, splitTeamData, sortType);
 }
@@ -64,6 +77,24 @@ async function prepareTeamSplitCommand(i: ChatInputCommandInteraction) {
     if (!(await Check.overVcUser(i, VALO_VC_MAX_VALUE))) return false;
     await i.deferReply();
     return true;
+}
+
+async function initValoTeamData(i: ChatInputCommandInteraction, userIDs: string[]) {
+    Log.info('Checked voice channel members', { userCount: userIDs.length });
+    const dbData: Record<string, DBUserRankData> = await getMemberRankFromDB(userIDs);
+    const unRegisterUser = userIDs.filter((id) => !dbData[id]);
+    if (unRegisterUser.length > 0) {
+        await replyUnregisteredUsers(i, unRegisterUser);
+        return [];
+    }
+    return userIDs.map((id) => {
+        const userData = dbData[id]!;
+        return {
+            discordData: { id },
+            riotData: userData.riotData,
+            timestamp: userData.timestamp,
+        };
+    });
 }
 
 async function replyRegisteredRiotIdNotFoundUsers(
@@ -89,7 +120,7 @@ async function sendSplitTeamResponse(
     page: number,
 ) {
     await i.editReply({
-        embeds: Embed.splitTeamResault(valoTeamData, splitTeamData, page, sortType, i.user.id),
+        embeds: Embed.splitTeamResult(valoTeamData, splitTeamData, page, sortType, i.user.id),
         components: [Button.teamSelect(splitTeamData, page), Button.moveVoiceChannel()],
     });
     Log.success('Sent team split response');
@@ -109,26 +140,23 @@ async function collectTeamSplitComponents(
         time: 600_000,
     });
     collector.on('collect', async (interaction) => {
-        await Log.withContext(
-            logContext,
-            async () => {
-                try {
-                    if (interaction.isStringSelectMenu()) {
-                        page = await updateSelectedTeamSplit(
-                            interaction,
-                            valoTeamData,
-                            splitTeamData,
-                            sortType,
-                            i.user.id,
-                        );
-                    } else if (interaction.isButton()) {
-                        await moveSelectedTeams(interaction, splitTeamData[page]!);
-                    }
-                } catch (error) {
-                    Log.error('Team split component handling failed', error);
+        await Log.withContext(logContext, async () => {
+            try {
+                if (interaction.isStringSelectMenu()) {
+                    page = await updateSelectedTeamSplit(
+                        interaction,
+                        valoTeamData,
+                        splitTeamData,
+                        sortType,
+                        i.user.id,
+                    );
+                } else if (interaction.isButton()) {
+                    await moveSelectedTeams(interaction, splitTeamData[page]!);
                 }
-            },
-        );
+            } catch (error) {
+                Log.error('Team split component handling failed', error);
+            }
+        });
     });
     collector.on('end', async () => {
         try {
@@ -150,7 +178,7 @@ async function updateSelectedTeamSplit(
     const page = Number(i.values[0]);
     Log.info('Changing displayed team split candidate', { page: page + 1 });
     await i.update({
-        embeds: Embed.splitTeamResault(valoTeamData, splitTeamData, page, sortType, userId),
+        embeds: Embed.splitTeamResult(valoTeamData, splitTeamData, page, sortType, userId),
         components: [Button.teamSelect(splitTeamData, page), Button.moveVoiceChannel()],
     });
     Log.success('Completed displayed team split candidate change', { page: page + 1 });
@@ -166,31 +194,11 @@ async function moveSelectedTeams(i: ButtonInteraction, splitData: ValoTeamSplitD
     const sendMessage = await i.followUp({ embeds: [statusEmbed] });
     await moveTeamsToVoiceChannels(i, splitData, uniqueId);
     await sendMessage.edit({
-        embeds: [
-            statusEmbed
-                .setTitle('VCの移動が正常に完了しました')
-                .setColor(Colors.Green),
-        ],
+        embeds: [statusEmbed.setTitle('VCの移動が正常に完了しました').setColor(Colors.Green)],
     });
     Log.success('Completed voice channel creation and team move', {
         sessionId: uniqueId,
     });
-}
-
-async function initValoTeamData(i: ChatInputCommandInteraction) {
-    const userIDs: string[] = getVcMemberUserID(i);
-    Log.info('Checked voice channel members', { userCount: userIDs.length });
-    const dbData: Record<string, any> = await getMemberRankFromDB(userIDs);
-    const unRegisterUser = userIDs.filter((id) => !dbData[id]);
-    if (unRegisterUser.length > 0) {
-        await replyUnregisteredUsers(i, unRegisterUser);
-        return [];
-    }
-    return userIDs.map((id) => ({
-        discordData: { id },
-        riotData: dbData[id].riotData,
-        timestamp: dbData[id].timestamp,
-    }));
 }
 
 async function replyUnregisteredUsers(i: ChatInputCommandInteraction, userIds: string[]) {
@@ -214,19 +222,60 @@ function getVcMemberUserID(i: ChatInputCommandInteraction) {
     return [...channel.members.values()].map((m) => m.user.id);
 }
 
+async function selectTeamTargetUserIDs(
+    i: ChatInputCommandInteraction,
+    userIDs: string[],
+    excludeOption: boolean,
+) {
+    const canExclude = userIDs.length > VALO_VC_MIN_VALUE;
+    const shouldSelectExcludeUsers = (userIDs.length >= 11 || excludeOption) && canExclude;
+    if (!shouldSelectExcludeUsers) return userIDs;
+
+    Log.info('Starting team exclude member selection', {
+        userCount: userIDs.length,
+        excludeOption,
+    });
+    await i.editReply({
+        embeds: [Embed.excludeMemberSelect(userIDs)],
+        components: [Button.excludeMemberSelect(i, userIDs)],
+    });
+
+    try {
+        const reply = await i.fetchReply();
+        const interaction = await reply.awaitMessageComponent({
+            componentType: ComponentType.StringSelect,
+            filter: (m) => m.user.id === i.user.id && m.customId === 'team_exclude_select',
+            time: 600_000,
+        });
+        const excludeUserIDs = interaction.values;
+        const targetUserIDs = userIDs.filter((id) => !excludeUserIDs.includes(id));
+
+        Log.success('Completed team exclude member selection', {
+            excludedUserCount: excludeUserIDs.length,
+            targetUserCount: targetUserIDs.length,
+        });
+        await interaction.update({
+            embeds: [Embed.excludeMemberSelected(excludeUserIDs, targetUserIDs)],
+            components: [],
+        });
+        return targetUserIDs;
+    } catch (error) {
+        Log.warn('Team exclude member selection timed out or failed', { error });
+        await i.editReply({
+            embeds: [Embed.excludeMemberSelectionTimeout()],
+            components: [],
+        });
+        return [];
+    }
+}
+
 async function updateOldUserData(
     i: ChatInputCommandInteraction,
     valoTeamData: ValoTeamUserData[],
 ): Promise<ValoTeamUserData[]> {
-    // 1時間以上前のデータを持つユーザーのみ抽出
-    const targets = valoTeamData.filter(
-        (user) =>
-            user.riotData &&
-            user.timestamp &&
-            diffFromNow(user.timestamp, DB_UPDATE_TIME_UNIT) >= DB_UPDATE_INTERVAL,
-    );
-
+    const targets = valoTeamData.filter(shouldUpdateRankData);
     Log.info('Checked rank update targets', { targetCount: targets.length });
+
     const concurrency = 2;
     let index = 0;
     const notFoundUsers: ValoTeamUserData[] = [];
@@ -237,34 +286,7 @@ async function updateOldUserData(
             if (currentIndex >= targets.length) return;
 
             const user = targets[currentIndex]!;
-            try {
-                const newRiotData = await apiGetUserRankData(
-                    user.riotData!.name,
-                    user.riotData!.tag,
-                );
-                const newTimestamp = generateTimeStamp();
-
-                await insertUserRankToDB({
-                    discordData: { id: user.discordData.id },
-                    riotData: newRiotData,
-                    timestamp: newTimestamp,
-                });
-
-                user.riotData = newRiotData;
-                user.timestamp = newTimestamp;
-                Log.success('Completed user rank update', {
-                    userId: user.discordData.id,
-                });
-            } catch (error) {
-                Log.error('Failed to update user rank data', {
-                    userId: user.discordData.id,
-                    error: error,
-                });
-                if (error instanceof UserNotFoundError) {
-                    notFoundUsers.push(user);
-                    await notifyRegisteredRiotIdNotFound(i, user);
-                }
-            }
+            if (!(await updateTeamUserRank(i, user))) notFoundUsers.push(user);
         }
     };
 
@@ -274,6 +296,39 @@ async function updateOldUserData(
     return notFoundUsers;
 }
 
+function shouldUpdateRankData(user: ValoTeamUserData) {
+    return (
+        user.riotData &&
+        user.timestamp &&
+        diffFromNow(user.timestamp, DB_UPDATE_TIME_UNIT) >= DB_UPDATE_INTERVAL
+    );
+}
+
+async function updateTeamUserRank(i: ChatInputCommandInteraction, user: ValoTeamUserData) {
+    if (!user.riotData) return true;
+
+    try {
+        const riotData = await apiGetUserRankData(user.riotData.name, user.riotData.tag);
+        const timestamp = generateTimeStamp();
+
+        await insertUserRankToDB({
+            discordData: { id: user.discordData.id },
+            riotData,
+            timestamp,
+        });
+
+        user.riotData = riotData;
+        user.timestamp = timestamp;
+        Log.success('Completed user rank update', { userId: user.discordData.id });
+        return true;
+    } catch (error) {
+        Log.error('Failed to update user rank data', { userId: user.discordData.id, error });
+        if (!(error instanceof UserNotFoundError)) return true;
+
+        await notifyRegisteredRiotIdNotFound(i, user);
+        return false;
+    }
+}
 
 async function notifyRegisteredRiotIdNotFound(
     i: ChatInputCommandInteraction,
@@ -294,7 +349,7 @@ async function notifyRegisteredRiotIdNotFound(
     } catch (error) {
         Log.warn('Failed to send registered Riot ID not found DM', {
             userId: userData.discordData.id,
-            error: error,
+            error,
         });
     }
 }
@@ -305,10 +360,10 @@ function splitBalancedTeams(valoTeamData: ValoTeamUserData[], sortType: string) 
     const teamASize = Math.ceil(len / 2);
     const teamBSize = len - teamASize;
 
-    const results: Array<{ teamA: { id: string }[]; teamB: { id: string }[]; diff: number }> = [];
+    const results: SplitCandidate[] = [];
     const seen = new Set<string>();
-    const teamA: { id: string }[] = [];
-    const teamB: { id: string }[] = [];
+    const teamA: TeamMember[] = [];
+    const teamB: TeamMember[] = [];
 
     const tryAllCombinations = (index: number, teamAValue: number, teamBValue: number) => {
         if (index === len) {
@@ -354,15 +409,19 @@ function toRankedUsers(valoTeamData: ValoTeamUserData[], sortType: string) {
         .sort((a, b) => b.rankValue - a.rankValue);
 }
 
-function createTeamCombinationKey(teamA: { id: string }[], teamB: { id: string }[]) {
-    const keyA = teamA.map((u) => u.id).sort().join(',');
-    const keyB = teamB.map((u) => u.id).sort().join(',');
+function createTeamCombinationKey(teamA: TeamMember[], teamB: TeamMember[]) {
+    const keyA = teamA
+        .map((u) => u.id)
+        .sort()
+        .join(',');
+    const keyB = teamB
+        .map((u) => u.id)
+        .sort()
+        .join(',');
     return keyA < keyB ? `${keyA}_${keyB}` : `${keyB}_${keyA}`;
 }
 
-function formatSplitResults(
-    results: Array<{ teamA: { id: string }[]; teamB: { id: string }[]; diff: number }>,
-) {
+function formatSplitResults(results: SplitCandidate[]) {
     results.sort((a, b) => a.diff - b.diff);
     const prioritized = [
         ...results.filter((r) => r.diff <= 3),
@@ -378,15 +437,14 @@ function formatSplitResults(
 
 async function generateVoiceChannel(i: ButtonInteraction, id: string) {
     const category = (i.channel as GuildChannel).parent;
-    // 例: 現在の日時やランダム値、またはDBやキャッシュで管理する連番
     const [attackerChannel, defenderChannel] = await Promise.all([
         i.guild?.channels.create({
-            name: `Attacker(自動生成)${id}`,
+            name: generatedVoiceChannelName('Attacker', id),
             type: 2,
             parent: category,
         }),
         i.guild?.channels.create({
-            name: `Defender(自動生成)${id}`,
+            name: generatedVoiceChannelName('Defender', id),
             type: 2,
             parent: category,
         }),
@@ -402,14 +460,9 @@ async function moveTeamsToVoiceChannels(
     splitData: ValoTeamSplitData,
     id: string,
 ) {
-    //VCを取得（idから生成したVC名で検索）
     const guild = i.guild;
-    const attackerVC = guild?.channels.cache.find(
-        (ch) => ch.type === 2 && ch.name === `Attacker(自動生成)${id}`,
-    ) as VoiceChannel | undefined;
-    const defenderVC = guild?.channels.cache.find(
-        (ch) => ch.type === 2 && ch.name === `Defender(自動生成)${id}`,
-    ) as VoiceChannel | undefined;
+    const attackerVC = findGeneratedVoiceChannel(i, 'Attacker', id);
+    const defenderVC = findGeneratedVoiceChannel(i, 'Defender', id);
     if (!attackerVC || !defenderVC) {
         Log.error('User move aborted because generated voice channels were not found', {
             sessionId: id,
@@ -417,20 +470,11 @@ async function moveTeamsToVoiceChannels(
         await i.followUp({ content: 'VCが見つかりませんでした', ephemeral: true });
         return;
     }
-    //ユーザーを取得して移動
-    const movePromises: Promise<unknown>[] = [];
-    for (const memberId of splitData.teamA.map((u) => u.id)) {
-        const member = guild?.members.cache.get(memberId);
-        if (member && member.voice.channelId) {
-            movePromises.push(member.voice.setChannel(attackerVC));
-        }
-    }
-    for (const memberId of splitData.teamB.map((u) => u.id)) {
-        const member = guild?.members.cache.get(memberId);
-        if (member && member.voice.channelId) {
-            movePromises.push(member.voice.setChannel(defenderVC));
-        }
-    }
+
+    const movePromises = [
+        ...moveTeamMembers(guild, splitData.teamA, attackerVC),
+        ...moveTeamMembers(guild, splitData.teamB, defenderVC),
+    ];
 
     Log.info('Starting team member voice channel move', {
         sessionId: id,
@@ -440,6 +484,27 @@ async function moveTeamsToVoiceChannels(
     Log.success('Completed team member voice channel move', {
         sessionId: id,
         movedUserCount: movePromises.length,
+    });
+}
+
+function generatedVoiceChannelName(side: TeamSide, id: string) {
+    return `${side}(自動生成)${id}`;
+}
+
+function findGeneratedVoiceChannel(i: ButtonInteraction, side: TeamSide, id: string) {
+    return i.guild?.channels.cache.find(
+        (ch) => ch.type === ChannelType.GuildVoice && ch.name === generatedVoiceChannelName(side, id),
+    ) as VoiceChannel | undefined;
+}
+
+function moveTeamMembers(
+    guild: ButtonInteraction['guild'],
+    members: TeamMember[],
+    channel: VoiceChannel,
+) {
+    return members.flatMap(({ id }) => {
+        const member = guild?.members.cache.get(id);
+        return member?.voice.channelId ? [member.voice.setChannel(channel)] : [];
     });
 }
 
@@ -454,11 +519,7 @@ class Embed {
             .setColor(Colors.Red);
     }
 
-
     static registeredRiotIdNotFound(dbData: ValoTeamUserData) {
-        const riotId = dbData.riotData
-            ? dbData.riotData.name + '#' + dbData.riotData.tag
-            : 'Unknown';
         return new EmbedBuilder()
             .setColor(Colors.Red)
             .setTitle('登録済みRiot IDが見つかりません')
@@ -466,7 +527,7 @@ class Embed {
                 'チーム分け時のランク更新で、登録されているRiot IDが存在しないためランク情報を更新できませんでした。アカウント削除やRiot ID変更の可能性があります。',
             )
             .setFields(
-                { name: '登録中のRiot ID', value: riotId, inline: false },
+                { name: '登録中のRiot ID', value: formatRiotId(dbData), inline: false },
                 {
                     name: '対応方法',
                     value: '/valo rank delete_option:true を実行し、連携を解除してから、現在のRiot IDで再登録してください。',
@@ -480,7 +541,6 @@ class Embed {
             );
     }
 
-
     static registeredRiotIdNotFoundUsers(users: ValoTeamUserData[]) {
         return new EmbedBuilder()
             .setTitle('登録済みRiot IDが見つからないユーザーがいます')
@@ -491,7 +551,43 @@ class Embed {
             .setColor(Colors.Red);
     }
 
-    static splitTeamResault(
+    static excludeMemberSelect(ids: string[]) {
+        return new EmbedBuilder()
+            .setTitle('除外するユーザーを選択してください')
+            .setDescription(
+                'チーム分けから除外するユーザーを選択してください。選択後、残ったユーザーでチーム分けを実行します。',
+            )
+            .setFields(userMentionFields(ids))
+            .setColor(Colors.Yellow);
+    }
+
+    static excludeMemberSelected(excludeUserIDs: string[], targetUserIDs: string[]) {
+        return new EmbedBuilder()
+            .setTitle('除外ユーザーを反映しました')
+            .setDescription('除外後のユーザーでチーム分けを続行します')
+            .setFields(
+                {
+                    name: '除外ユーザー',
+                    value: mentionUsers(excludeUserIDs),
+                    inline: false,
+                },
+                {
+                    name: 'チーム分け対象人数',
+                    value: String(targetUserIDs.length) + '人',
+                    inline: false,
+                },
+            )
+            .setColor(Colors.Green);
+    }
+
+    static excludeMemberSelectionTimeout() {
+        return new EmbedBuilder()
+            .setTitle('除外選択がタイムアウトしました')
+            .setDescription('除外選択が完了しなかったため、チーム分け処理を終了しました')
+            .setColor(Colors.Red);
+    }
+
+    static splitTeamResult(
         teamData: ValoTeamUserData[],
         splitData: ValoTeamSplitData[],
         page: number,
@@ -499,21 +595,8 @@ class Embed {
         id: string,
     ) {
         const rankKey = sortType === 'max' ? 'maxRank' : 'nowRank';
-        const getRankIcon = (userId: string) => {
-            const user = teamData.find((u) => u.discordData.id === userId);
-            const rankName = user?.riotData?.[rankKey] ?? 'Unrated';
-            return valoRankIcon[rankName] ?? valoRankIcon.Unrated;
-        };
-        const teamAFields = splitData[page]?.teamA.map((member) => ({
-            name: '',
-            value: `${getRankIcon(member.id)} <@${member.id}>`,
-            inline: false,
-        }));
-        const teamBFields = splitData[page]?.teamB.map((member) => ({
-            name: '',
-            value: `${getRankIcon(member.id)} <@${member.id}>`,
-            inline: false,
-        }));
+        const getRankIcon = createRankIconResolver(teamData, rankKey);
+        const currentSplit = splitData[page];
         const header = new EmbedBuilder()
             .setTitle('チーム分けが完了しました')
             .setFields(
@@ -528,18 +611,15 @@ class Embed {
                 { name: `${splitData[page]?.diff}`, value: '', inline: true },
             )
             .setColor(Colors.Green);
-        const teamA = new EmbedBuilder()
-            .setTitle('Attacker')
-            .setFields(teamAFields ?? [])
-            .setColor(Colors.Red);
-        const teamB = new EmbedBuilder()
-            .setTitle('Defender')
-            .setFields(teamBFields ?? [])
-            .setColor(Colors.Blue);
         const footer = new EmbedBuilder().setDescription(
             `組み合わせ表示とVC移動はコマンド実行ユーザーのみ実行可能です\nコマンド実行ユーザー：<@${id}>`,
         );
-        return [header, teamA, teamB, footer];
+        return [
+            header,
+            teamEmbed('Attacker', currentSplit?.teamA, getRankIcon, Colors.Red),
+            teamEmbed('Defender', currentSplit?.teamB, getRankIcon, Colors.Blue),
+            footer,
+        ];
     }
 
     static generateVoiceChannel(id: string) {
@@ -547,12 +627,22 @@ class Embed {
             .setTitle('VCの移動を実行中')
             .setColor(Colors.Yellow)
             .setDescription('VCを自動生成しました\nSession-IDは`/valo vc-summon`コマンドで使います')
-            .addFields({
-                name: 'Session-ID',
-                value: `\`\`\`text\n${id}\n\`\`\``,
-            })
+            .addFields(
+                {
+                    name: 'Session-ID',
+                    value: `\`\`\`text\n${id}\n\`\`\``,
+                },
+                {
+                    name: 'コピー用コマンド',
+                    value: `\`\`\`text\n/valo vc-summon session_id:${id}\n\`\`\``,
+                },
+            )
             .setFooter({ text: '※自動生成したVCは全ユーザーが退出後自動的に削除されます' });
     }
+}
+
+function formatRiotId(userData: ValoTeamUserData) {
+    return userData.riotData ? userData.riotData.name + '#' + userData.riotData.tag : 'Unknown';
 }
 
 function userMentionFields(ids: string[]) {
@@ -563,7 +653,55 @@ function userMentionFields(ids: string[]) {
     }));
 }
 
+function createRankIconResolver(teamData: ValoTeamUserData[], rankKey: 'nowRank' | 'maxRank') {
+    const unratedIcon = valoRankIcon.Unrated ?? '';
+    const rankIcons = new Map(
+        teamData.map((user) => {
+            const rankName = user.riotData?.[rankKey] ?? 'Unrated';
+            return [user.discordData.id, valoRankIcon[rankName] ?? unratedIcon];
+        }),
+    );
+    return (userId: string) => rankIcons.get(userId) ?? unratedIcon;
+}
+
+function teamEmbed(
+    title: TeamSide,
+    members: TeamMember[] | undefined,
+    getRankIcon: (userId: string) => string,
+    color: number,
+) {
+    return new EmbedBuilder()
+        .setTitle(title)
+        .setFields(
+            members?.map((member) => ({
+                name: '',
+                value: `${getRankIcon(member.id)} <@${member.id}>`,
+                inline: false,
+            })) ?? [],
+        )
+        .setColor(color);
+}
+
 class Button {
+    static excludeMemberSelect(i: ChatInputCommandInteraction, userIDs: string[]) {
+        const options = userIDs.map((id) => {
+            const member = i.guild?.members.cache.get(id);
+            const label = (member?.displayName ?? id).slice(0, 100);
+            return {
+                label,
+                value: id,
+                description: 'User ID: ' + id,
+            };
+        });
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId('team_exclude_select')
+            .setPlaceholder('除外するユーザーを選択')
+            .setMinValues(1)
+            .setMaxValues(userIDs.length - VALO_VC_MIN_VALUE)
+            .addOptions(options);
+        return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+    }
+
     static teamSelect(splitData: ValoTeamSplitData[], page: number) {
         const options = splitData.map((d, idx) => ({
             label: idx === page ? `組み合わせ ${idx + 1} (現在表示中)` : `組み合わせ ${idx + 1}`,

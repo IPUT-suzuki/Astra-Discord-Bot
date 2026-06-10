@@ -46,10 +46,10 @@ export async function handleValoRankCommand(i: ChatInputCommandInteraction) {
 }
 
 async function getRegisteredRankData(userId: string) {
-    Log.info('Checking rank registration status', { userId: userId });
+    Log.info('Checking rank registration status', { userId });
     const dbUserData: DBUserRankData | null = await getUserRankFromDB(userId);
     Log.info('Checked rank registration status', {
-        userId: userId,
+        userId,
         registered: Boolean(dbUserData),
     });
     return dbUserData;
@@ -111,7 +111,7 @@ async function showRankRegistrationModal(
 }
 
 async function awaitRankRegistrationModal(i: ChatInputCommandInteraction, userId: string) {
-    Log.info('Waiting for rank registration modal submission', { userId: userId });
+    Log.info('Waiting for rank registration modal submission', { userId });
     const filter = (modal: ModalSubmitInteraction) => modal.customId === riotIdModalId + userId;
     const modalInteraction = await i
         .awaitModalSubmit({ filter, time: MODAL_TIMEOUT_MS })
@@ -192,7 +192,7 @@ async function notifyRegisteredRiotIdNotFound(
     } catch (error) {
         Log.warn('Failed to send registered Riot ID not found DM', {
             userId: userData.discordData.id,
-            error: error,
+            error,
         });
     }
 }
@@ -207,9 +207,9 @@ function getModalInputValue(i: ModalSubmitInteraction, userId: string) {
 function formatUserDataForDb(id: string, riotData: RiotUserData): DBUserRankData {
     return {
         discordData: {
-            id: id,
+            id,
         },
-        riotData: riotData,
+        riotData,
         timestamp: generateTimeStamp(),
     };
 }

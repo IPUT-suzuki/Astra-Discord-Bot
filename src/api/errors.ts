@@ -23,7 +23,7 @@ export class UserNotFoundError extends HenrikApiError {
     static console(name: string, tag: string, status: number) {
         Log.error('Target user was not found by rank service', {
             service: 'rank-service',
-            status: status,
+            status,
             target: `${name}#${tag}`,
         });
     }
@@ -33,7 +33,7 @@ class BadRequestError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service request is invalid', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
@@ -49,7 +49,7 @@ class UnauthorizedError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service authorization failed', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
@@ -65,7 +65,7 @@ class ForbiddenError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service access was forbidden', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
@@ -81,7 +81,7 @@ export class RequestTimeoutError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service request timed out', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
@@ -97,7 +97,7 @@ class EndpointDeprecatedError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service endpoint is deprecated', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
@@ -113,7 +113,7 @@ class RateLimitError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service rate limit was reached', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
@@ -129,7 +129,7 @@ class ServerError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service server error occurred', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
@@ -145,14 +145,14 @@ class NotImplementedError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service does not support the requested feature', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
     static embed() {
         return new EmbedBuilder()
             .setColor(Colors.Red)
-            .setTitle('Not Implementted')
+            .setTitle('Not Implemented')
             .setDescription('要求された API バージョンはサポートされていません。');
     }
 }
@@ -161,7 +161,7 @@ class ServiceUnavailableError extends HenrikApiError {
     static console(status: number) {
         Log.error('Rank service is unavailable', {
             service: 'rank-service',
-            status: status,
+            status,
         });
     }
 
@@ -222,13 +222,12 @@ export function henrikApiErrorConsole(status: number, name: string, tag: string)
     }
 }
 
-export function henrikApiErrorEmbed(error: any, name: string, tag: string) {
+export function henrikApiErrorEmbed(error: unknown, name: string, tag: string) {
     if (isAxiosTimeoutError(error)) {
         return RequestTimeoutError.embed();
     }
 
-    const status: number | undefined =
-        error.status ?? (typeof error === 'number' ? error : undefined);
+    const status = getErrorStatus(error);
 
     const handlers: Record<number, () => EmbedBuilder> = {
         400: () => BadRequestError.embed(),
@@ -249,4 +248,12 @@ export function henrikApiErrorEmbed(error: any, name: string, tag: string) {
               .setColor(Colors.Red)
               .setTitle('Error')
               .setDescription('不明なエラーが発生しました。');
+}
+
+function getErrorStatus(error: unknown): number | undefined {
+    if (typeof error === 'number') return error;
+    if (!error || typeof error !== 'object' || !('status' in error)) return undefined;
+
+    const status = error.status;
+    return typeof status === 'number' ? status : undefined;
 }

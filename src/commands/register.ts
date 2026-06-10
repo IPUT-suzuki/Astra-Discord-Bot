@@ -35,3 +35,5 @@ export async function registerCommands() {
         throw error;
     }
 }
+
+registerCommands();

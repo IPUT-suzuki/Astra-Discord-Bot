@@ -56,7 +56,7 @@ export const VALO_RANK_VALUE: Record<string, number> = {
     Radiant: 30.0,
 };
 //VALO RANKコマンド関連設定
-export const VALO_RIOT_ID_MODAL_ID = 'valo-rarnk-modal';
+export const VALO_RIOT_ID_MODAL_ID = 'valo-rank-modal';
 export const VALO_RIOT_ID_NAME_INPUT_ID = 'riot-id-name';
 export const VALO_RIOT_ID_TAG_INPUT_ID = 'riot-id-tag';
 //MODAL関連共通

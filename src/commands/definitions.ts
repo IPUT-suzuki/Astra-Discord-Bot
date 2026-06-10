@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { ChannelType, SlashCommandBuilder } from 'discord.js';
 
 export const commandDefinitions = [
     new SlashCommandBuilder()
@@ -26,10 +26,10 @@ export const commandDefinitions = [
                         .setRequired(true)
                         .setChoices({ name: 'now', value: 'now' }, { name: 'max', value: 'max' }),
                 )
-                .addStringOption((option) =>
+                .addBooleanOption((option) =>
                     option
                         .setName('exclude_option')
-                        .setDescription('チーム分けから除外する対象を指定')
+                        .setDescription('チーム分け前に除外するユーザーを選択します')
                         .setRequired(false),
                 ),
         )
@@ -42,6 +42,13 @@ export const commandDefinitions = [
                         .setName('session_id')
                         .setDescription('/valo teamコマンドで生成したSession-IDを入力してください')
                         .setRequired(true),
+                )
+                .addChannelOption((option) =>
+                    option
+                        .setName('target_vc')
+                        .setDescription('移動先のVCを選択してください')
+                        .addChannelTypes(ChannelType.GuildVoice)
+                        .setRequired(false),
                 ),
         )
         .addSubcommand((sub) =>

@@ -1,5 +1,6 @@
 import {
     Colors,
+    ChannelType,
     EmbedBuilder,
     MessageFlags,
     type ChatInputCommandInteraction,
@@ -17,24 +18,34 @@ export async function handleVcSummonCommand(i: ChatInputCommandInteraction) {
     const sessionId = i.options.getString('session_id', true);
     if (!(await Check.isValidUUID(i, sessionId))) return;
 
-    Log.info('Searching voice channels for session ID', { sessionId: sessionId });
+    Log.info('Searching voice channels for session ID', { sessionId });
     const guild = i.guild;
     const targetVCs = guild?.channels.cache.filter(
-        (channel) => channel.type === 2 && channel.name.includes(sessionId),
+        (channel) => channel.type === ChannelType.GuildVoice && channel.name.includes(sessionId),
     );
     if (!targetVCs?.size) {
         Log.warn('Voice channel summon aborted because no channel matched the session ID', {
-            sessionId: sessionId,
+            sessionId,
         });
         await i.reply({ embeds: [Embed.noVoiceChannel(sessionId)], flags: MessageFlags.Ephemeral });
         return;
     }
 
     const userVC = (i.member as GuildMember)?.voice?.channel;
+    const selectedVC = i.options.getChannel('target_vc', false);
+    const destinationChannelId = selectedVC?.id ?? userVC?.id;
+    if (!destinationChannelId || (selectedVC && selectedVC.type !== ChannelType.GuildVoice)) {
+        Log.warn('Voice channel summon aborted because destination voice channel is invalid', {
+            destinationChannelId,
+        });
+        await i.reply({ embeds: [Embed.invalidDestinationVoiceChannel()], flags: MessageFlags.Ephemeral });
+        return;
+    }
+
     const movePromises: Promise<unknown>[] = [];
     for (const vc of targetVCs.values()) {
         for (const member of (vc as VoiceChannel).members.values()) {
-            movePromises.push(member.voice.setChannel(userVC));
+            movePromises.push(member.voice.setChannel(destinationChannelId));
         }
     }
 
@@ -61,6 +72,13 @@ class Embed {
             })
             .setColor(Colors.Red);
     }
+    static invalidDestinationVoiceChannel() {
+        return new EmbedBuilder()
+            .setTitle('ERROR')
+            .setDescription('移動先のVCが正しくありません')
+            .setColor(Colors.Red);
+    }
+
     static successMoveVc() {
         return new EmbedBuilder().setTitle('VCの移動が正常に完了しました').setColor(Colors.Green);
     }

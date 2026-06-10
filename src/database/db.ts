@@ -69,7 +69,7 @@ export async function insertUserRankToDB(data: DBUserRankData) {
     } catch (error) {
         Log.error('Failed to save user rank data', {
             userId: data.discordData.id,
-            error: error,
+            error,
         });
         throw error;
     } finally {
@@ -84,14 +84,14 @@ export async function deleteUserRankFromDB(userid: string) {
         await conn.query('DELETE FROM userrank WHERE userid = ?', [userid]);
         Log.success('Completed user rank data deletion', { userId: userid });
     } catch (error) {
-        Log.error('Failed to delete user rank data', { userId: userid, error: error });
+        Log.error('Failed to delete user rank data', { userId: userid, error });
         throw error;
     } finally {
         conn.release();
     }
 }
 
-export async function getUserRankFromDB(userid: string) {
+export async function getUserRankFromDB(userid: string): Promise<DBUserRankData | null> {
     const conn = await pool.getConnection();
     try {
         Log.info('Starting user rank data fetch', { userId: userid });
@@ -114,7 +114,7 @@ export async function getUserRankFromDB(userid: string) {
             timestamp: row.timeStamp ?? '',
         };
     } catch (error) {
-        Log.error('Failed to fetch user rank data', { userId: userid, error: error });
+        Log.error('Failed to fetch user rank data', { userId: userid, error });
         throw error;
     } finally {
         conn.release();
@@ -122,7 +122,7 @@ export async function getUserRankFromDB(userid: string) {
 }
 
 //summonコマンド関連
-export async function getMemberRankFromDB(userIds: string[]) {
+export async function getMemberRankFromDB(userIds: string[]): Promise<Record<string, DBUserRankData>> {
     const conn = await pool.getConnection();
     try {
         Log.info('Starting member rank data fetch', { requestedCount: userIds.length });
@@ -149,7 +149,7 @@ export async function getMemberRankFromDB(userIds: string[]) {
     } catch (error) {
         Log.error('Failed to fetch member rank data', {
             requestedCount: userIds.length,
-            error: error,
+            error,
         });
         throw error;
     } finally {

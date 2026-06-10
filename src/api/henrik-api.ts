@@ -10,6 +10,26 @@ import { API_TIMEOUT_MS, REQUEST_PLATFORMS, REQUEST_REGION } from '../utils/conf
 import type { RiotUserData } from '../utils/interface.js';
 import { Log } from '../utils/log.js';
 
+interface HenrikMmrResponse {
+    data: {
+        account: {
+            name: string;
+            tag: string;
+        };
+        current: {
+            tier: {
+                name: string;
+            };
+            rr: number;
+        };
+        peak: {
+            tier: {
+                name: string;
+            };
+        };
+    };
+}
+
 const apiKey = process.env.HENRIKDEV_API_KEY;
 
 export async function apiGetUserRankData(name: string, tag: string): Promise<RiotUserData> {
@@ -20,9 +40,9 @@ export async function apiGetUserRankData(name: string, tag: string): Promise<Rio
     }
 
     try {
-        Log.info('Starting rank service MMR fetch', { target: target });
-        const res = await axios.get(getMmrUrl(name, tag), getRequestConfig(apiKey));
-        const formatData = formatMmrResponse(res);
+        Log.info('Starting rank service MMR fetch', { target });
+        const res = await axios.get<HenrikMmrResponse>(getMmrUrl(name, tag), getRequestConfig(apiKey));
+        const formatData = formatMmrResponse(res.data);
         Log.success('Completed rank service MMR fetch', {
             target,
             status: res.status,
@@ -30,7 +50,7 @@ export async function apiGetUserRankData(name: string, tag: string): Promise<Rio
         return formatData;
     } catch (error) {
         if (!axios.isAxiosError(error)) {
-            Log.error('Unexpected error occurred while fetching rank data', { target: target, error: error });
+            Log.error('Unexpected error occurred while fetching rank data', { target, error });
             throw error;
         }
 
@@ -40,11 +60,11 @@ export async function apiGetUserRankData(name: string, tag: string): Promise<Rio
         }
 
         const status = error.response?.status;
-        Log.warn('Rank service MMR fetch failed', { target: target, status: status });
+        Log.warn('Rank service MMR fetch failed', { target, status });
         if (status === 404) {
-            Log.info('Starting account existence check because MMR data was not found', { target: target });
+            Log.info('Starting account existence check because MMR data was not found', { target });
             if (await hasAccount(name, tag)) {
-                Log.info('Creating unrated rank data', { target: target });
+                Log.info('Creating unrated rank data', { target });
                 return formatNoMmrResponse(name, tag);
             }
             UserNotFoundError.console(name, tag, status);
@@ -69,15 +89,15 @@ async function hasAccount(name: string, tag: string) {
         return true;
     } catch (error) {
         if (!axios.isAxiosError(error)) {
-            Log.error('Unexpected error occurred while checking account existence', { target: target, error: error });
+            Log.error('Unexpected error occurred while checking account existence', { target, error });
             throw error;
         }
         const status = error.response?.status;
         if (status === 404) {
-            Log.warn('Target account was not found by rank service', { target: target, status: status });
+            Log.warn('Target account was not found by rank service', { target, status });
             return false;
         }
-        Log.error('Rank service account check failed', { target: target, status: status });
+        Log.error('Rank service account check failed', { target, status });
         if (status) {
             const apiError = henrikApiErrorConsole(status, name, tag);
             if (apiError) throw apiError;
@@ -86,8 +106,8 @@ async function hasAccount(name: string, tag: string) {
     }
 }
 
-function formatMmrResponse(raw: any): RiotUserData {
-    const data = (raw as { data: any }).data.data;
+function formatMmrResponse(raw: HenrikMmrResponse): RiotUserData {
+    const data = raw.data;
     return {
         name: data.account.name,
         tag: data.account.tag,
