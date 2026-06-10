@@ -2,7 +2,6 @@ import {
     Colors,
     ChannelType,
     EmbedBuilder,
-    MessageFlags,
     type ChatInputCommandInteraction,
     type GuildMember,
     type VoiceChannel,
@@ -18,6 +17,8 @@ export async function handleVcSummonCommand(i: ChatInputCommandInteraction) {
     const sessionId = i.options.getString('session_id', true);
     if (!(await Check.isValidUUID(i, sessionId))) return;
 
+    await i.deferReply();
+
     Log.info('Searching voice channels for session ID', { sessionId });
     const guild = i.guild;
     const targetVCs = guild?.channels.cache.filter(
@@ -27,7 +28,7 @@ export async function handleVcSummonCommand(i: ChatInputCommandInteraction) {
         Log.warn('Voice channel summon aborted because no channel matched the session ID', {
             sessionId,
         });
-        await i.reply({ embeds: [Embed.noVoiceChannel(sessionId)], flags: MessageFlags.Ephemeral });
+        await i.editReply({ embeds: [Embed.noVoiceChannel(sessionId)] });
         return;
     }
 
@@ -38,7 +39,7 @@ export async function handleVcSummonCommand(i: ChatInputCommandInteraction) {
         Log.warn('Voice channel summon aborted because destination voice channel is invalid', {
             destinationChannelId,
         });
-        await i.reply({ embeds: [Embed.invalidDestinationVoiceChannel()], flags: MessageFlags.Ephemeral });
+        await i.editReply({ embeds: [Embed.invalidDestinationVoiceChannel()] });
         return;
     }
 
@@ -55,7 +56,7 @@ export async function handleVcSummonCommand(i: ChatInputCommandInteraction) {
     });
     await Promise.all(movePromises);
     Log.success('Completed target user voice channel move', { movedUserCount: movePromises.length });
-    await i.reply({ embeds: [Embed.successMoveVc()] });
+    await i.editReply({ embeds: [Embed.successMoveVc()] });
     Log.success('Sent voice channel summon response');
 }
 
