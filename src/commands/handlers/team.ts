@@ -493,7 +493,8 @@ function generatedVoiceChannelName(side: TeamSide, id: string) {
 
 function findGeneratedVoiceChannel(i: ButtonInteraction, side: TeamSide, id: string) {
     return i.guild?.channels.cache.find(
-        (ch) => ch.type === ChannelType.GuildVoice && ch.name === generatedVoiceChannelName(side, id),
+        (ch) =>
+            ch.type === ChannelType.GuildVoice && ch.name === generatedVoiceChannelName(side, id),
     ) as VoiceChannel | undefined;
 }
 
@@ -516,6 +517,11 @@ class Embed {
                 '未登録ユーザーがいるためチーム分け処理を終了しました\n以下のユーザーは`/valo rank`コマンドを実施してください',
             )
             .setFields(userMentionFields(ids))
+            .addFields({
+                name: 'コピー用',
+                value: '```\n/valo rank\n```',
+                inline: false,
+            })
             .setColor(Colors.Red);
     }
 
