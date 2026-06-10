@@ -25,6 +25,12 @@ export const commandDefinitions = [
                         .setDescription('チーム分けの基準となるランクを設定します')
                         .setRequired(true)
                         .setChoices({ name: 'now', value: 'now' }, { name: 'max', value: 'max' }),
+                )
+                .addStringOption((option) =>
+                    option
+                        .setName('exclude_option')
+                        .setDescription('チーム分けから除外する対象を指定')
+                        .setRequired(false),
                 ),
         )
         .addSubcommand((sub) =>
